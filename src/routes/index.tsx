@@ -684,21 +684,25 @@ function LumeFitApp() {
         logoImg.onload = () => resolve();
         logoImg.onerror = () => reject(new Error("logo_load_error"));
       });
-      ctx.drawImage(logoImg, 460, 190, 160, 160);
-
       ctx.fillStyle = "#248a4c";
       ctx.textAlign = "center";
       ctx.font = "700 52px Poppins, sans-serif";
-      ctx.fillText("LUMEfit", 540, 415);
+      ctx.fillText("LUMEfit", 540, 300);
 
       ctx.fillStyle = "#2f7f52";
       ctx.font = "600 44px Poppins, sans-serif";
-      ctx.fillText(`Parabéns, ${profile.name || "Campeã"}!`, 540, 500);
+      ctx.fillText(`Parabéns, ${profile.name || "Campeã"}!`, 540, 375);
 
       ctx.fillStyle = "#376b4d";
       ctx.font = "500 34px Poppins, sans-serif";
-      ctx.fillText("A tua consistência está a transformar o teu corpo.", 540, 560);
-      ctx.fillText("Continua firme — cada dia conta!", 540, 610);
+      ctx.fillText("A tua consistência está a transformar o teu corpo.", 540, 435);
+      ctx.fillText("Continua firme — cada dia conta!", 540, 485);
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+      ctx.beginPath();
+      ctx.arc(540, 780, 200, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.drawImage(logoImg, 360, 600, 360, 360);
 
       ctx.textAlign = "left";
       const blockX = 145;
@@ -712,36 +716,36 @@ function LumeFitApp() {
 
       ctx.fillStyle = "#1f5f3f";
       ctx.font = "600 38px Poppins, sans-serif";
-      ctx.fillText("Resumo de hoje", blockX, 760);
+      ctx.fillText("Resumo de hoje", blockX, 1040);
       ctx.font = "500 34px Poppins, sans-serif";
       lines.forEach((line, index) => {
-        ctx.fillText(line, blockX, 840 + index * 88);
+        ctx.fillText(line, blockX, 1120 + index * 88);
       });
 
-      const fitnessGradient = ctx.createLinearGradient(140, 1290, 940, 1700);
+      const fitnessGradient = ctx.createLinearGradient(140, 1500, 940, 1760);
       fitnessGradient.addColorStop(0, "rgba(46, 181, 102, 0.23)");
       fitnessGradient.addColorStop(1, "rgba(21, 138, 76, 0.34)");
       ctx.fillStyle = fitnessGradient;
       ctx.beginPath();
-      ctx.moveTo(140, 1290);
-      ctx.lineTo(940, 1290);
-      ctx.lineTo(940, 1700);
-      ctx.lineTo(140, 1700);
+      ctx.moveTo(140, 1500);
+      ctx.lineTo(940, 1500);
+      ctx.lineTo(940, 1760);
+      ctx.lineTo(140, 1760);
       ctx.closePath();
       ctx.fill();
 
       ctx.strokeStyle = "rgba(36, 138, 76, 0.55)";
       ctx.lineWidth = 8;
       ctx.beginPath();
-      ctx.moveTo(180, 1580);
-      ctx.quadraticCurveTo(360, 1450, 520, 1580);
-      ctx.quadraticCurveTo(700, 1710, 900, 1510);
+      ctx.moveTo(180, 1695);
+      ctx.quadraticCurveTo(360, 1575, 520, 1695);
+      ctx.quadraticCurveTo(700, 1795, 900, 1635);
       ctx.stroke();
 
       ctx.fillStyle = "#236e46";
       ctx.textAlign = "center";
       ctx.font = "600 30px Poppins, sans-serif";
-      ctx.fillText("Partilha a tua evolução e inspira outras mulheres 💚", 540, 1760);
+      ctx.fillText("Partilha a tua evolução e inspira outras mulheres 💚", 540, 1735);
 
       setShareImageUrl(canvas.toDataURL("image/png"));
       setToastMessage("Imagem gerada com sucesso ✨");
