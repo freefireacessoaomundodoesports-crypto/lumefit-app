@@ -671,10 +671,13 @@ function LumeFitApp() {
   };
 
   const shareSummary = `A minha consistência no LUMEfit 💚\n${profile.name || "Utilizadora"}\nMeta: ${profile.calorieGoal} kcal • ${(profile.hydrationGoalMl / 1000).toFixed(1)}L\nHoje: ${consumedCalories} kcal e ${(waterIntakeMl / 1000).toFixed(2)}L`;
+  const weightShareSummary = `A minha evolução de peso no LUMEfit 💚\n${profile.name || "Utilizadora"}\nPeso anterior: ${previousWeight.toFixed(1)}kg\nPeso atual: ${profile.weight.toFixed(1)}kg\nPeso desejado: ${profile.targetWeight.toFixed(1)}kg`;
+  const activeShareSummary = shareMode === "weight" ? weightShareSummary : shareSummary;
 
   const handleGenerateShareImage = async () => {
     setIsGeneratingShareImage(true);
     try {
+      const isWeightMode = shareMode === "weight";
       const canvas = document.createElement("canvas");
       canvas.width = 1080;
       canvas.height = 1920;
@@ -735,7 +738,11 @@ function LumeFitApp() {
 
       ctx.fillStyle = "#376b4d";
       ctx.font = "500 34px Poppins, sans-serif";
-      ctx.fillText("A tua consistência está a transformar o teu corpo.", 540, 435);
+      ctx.fillText(
+        isWeightMode ? "A tua disciplina está a mudar o teu peso." : "A tua consistência está a transformar o teu corpo.",
+        540,
+        435,
+      );
       ctx.fillText("Continua firme — cada dia conta!", 540, 485);
 
       ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
@@ -746,17 +753,25 @@ function LumeFitApp() {
 
       ctx.textAlign = "left";
       const blockX = 145;
-      const lines = [
-        `Meta diária: ${profile.calorieGoal} kcal`,
-        `Meta de água: ${(profile.hydrationGoalMl / 1000).toFixed(1)}L`,
-        `Consumido hoje: ${consumedCalories} kcal`,
-        `Proteína: ${Math.round(macros.protein)}g • Carboidratos: ${Math.round(macros.carbs)}g • Gorduras: ${Math.round(macros.fat)}g`,
-        `Água bebida hoje: ${(waterIntakeMl / 1000).toFixed(2)}L`,
-      ];
+      const lines = isWeightMode
+        ? [
+            `Peso anterior: ${previousWeight.toFixed(1)}kg`,
+            `Peso atual: ${profile.weight.toFixed(1)}kg`,
+            `Peso desejado: ${profile.targetWeight.toFixed(1)}kg`,
+            `Calorias hoje: ${consumedCalories} kcal`,
+            `Água hoje: ${(waterIntakeMl / 1000).toFixed(2)}L`,
+          ]
+        : [
+            `Meta diária: ${profile.calorieGoal} kcal`,
+            `Meta de água: ${(profile.hydrationGoalMl / 1000).toFixed(1)}L`,
+            `Consumido hoje: ${consumedCalories} kcal`,
+            `Proteína: ${Math.round(macros.protein)}g • Carboidratos: ${Math.round(macros.carbs)}g • Gorduras: ${Math.round(macros.fat)}g`,
+            `Água bebida hoje: ${(waterIntakeMl / 1000).toFixed(2)}L`,
+          ];
 
       ctx.fillStyle = "#1f5f3f";
       ctx.font = "600 38px Poppins, sans-serif";
-      ctx.fillText("Resumo de hoje", blockX, 1040);
+      ctx.fillText(isWeightMode ? "Progresso de peso" : "Resumo de hoje", blockX, 1040);
       ctx.font = "500 34px Poppins, sans-serif";
       lines.forEach((line, index) => {
         ctx.fillText(line, blockX, 1120 + index * 88);
@@ -785,7 +800,11 @@ function LumeFitApp() {
       ctx.fillStyle = "#236e46";
       ctx.textAlign = "center";
       ctx.font = "600 30px Poppins, sans-serif";
-      ctx.fillText("Partilha a tua evolução e inspira outras mulheres 💚", 540, 1735);
+      ctx.fillText(
+        isWeightMode ? "O teu foco inspira outras mulheres a não desistir 💚" : "Partilha a tua evolução e inspira outras mulheres 💚",
+        540,
+        1735,
+      );
 
       setShareImageUrl(canvas.toDataURL("image/png"));
       setToastMessage("Imagem gerada com sucesso ✨");
@@ -804,7 +823,7 @@ function LumeFitApp() {
     if (!shareImageUrl) return;
     const link = document.createElement("a");
     link.href = shareImageUrl;
-    link.download = `lumefit-partilha-${new Date().toISOString().slice(0, 10)}.png`;
+    link.download = `${shareMode === "weight" ? "lumefit-peso" : "lumefit-partilha"}-${new Date().toISOString().slice(0, 10)}.png`;
     link.click();
   };
 
@@ -812,10 +831,12 @@ function LumeFitApp() {
     if (!shareImageUrl || !navigator.share) return;
     const response = await fetch(shareImageUrl);
     const blob = await response.blob();
-    const file = new File([blob], "lumefit-progresso.png", { type: "image/png" });
+    const file = new File([blob], shareMode === "weight" ? "lumefit-peso.png" : "lumefit-progresso.png", {
+      type: "image/png",
+    });
     await navigator.share({
       title: "LUMEfit",
-      text: shareSummary,
+      text: activeShareSummary,
       files: [file],
     });
   };
@@ -830,7 +851,7 @@ function LumeFitApp() {
       }
     }
 
-    const encoded = encodeURIComponent(shareSummary);
+    const encoded = encodeURIComponent(activeShareSummary);
     const urlMap = {
       whatsapp: `https://wa.me/?text=${encoded}`,
       telegram: `https://t.me/share/url?url=https://lumefit.app&text=${encoded}`,
