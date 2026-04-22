@@ -1661,7 +1661,7 @@ function LumeFitApp() {
                   </article>
 
                   <div className="mt-4 grid grid-cols-2 gap-3">
-                    {(Object.keys(mealLabels) as MealType[]).map((meal) => {
+                    {(Object.keys(localizedMeals) as MealType[]).map((meal) => {
                       const mealEntries = mealsByType[meal];
                       const total = mealEntries.reduce((sum, item) => sum + item.calories, 0);
                       const isOpen = expandedMeals.includes(meal);
@@ -1682,7 +1682,7 @@ function LumeFitApp() {
                             }
                             className="w-full text-left"
                           >
-                            <p className="text-sm font-medium">{mealLabels[meal]}</p>
+                            <p className="text-sm font-medium">{localizedMeals[meal]}</p>
                             <p className="text-xs text-muted-foreground">{total} kcal</p>
                           </button>
                           <Button
@@ -1846,7 +1846,9 @@ function LumeFitApp() {
                           <span className="rounded-full border border-glass-border bg-glass px-3 py-1 text-xs">
                             {activeResult.cuisineTag}
                           </span>
-                          <span className="text-xs text-muted-foreground">Hoje, {currentTimestamp}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {appLanguage === "en" ? "Today" : "Hoje"}, {currentTimestamp}
+                          </span>
                         </div>
                       </article>
 
