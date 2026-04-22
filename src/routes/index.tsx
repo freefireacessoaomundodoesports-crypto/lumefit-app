@@ -765,7 +765,7 @@ function LumeFitApp() {
     setIsSavingMeal(true);
     setEntries((prev) => [nextEntry, ...prev]);
     setRecentAnalyses((prev) => {
-      const stamp = `Hoje, ${currentTimestamp}`;
+      const stamp = `${appLanguage === "en" ? "Today" : "Hoje"}, ${currentTimestamp}`;
       const first: RecentMealAnalysis = {
         id: crypto.randomUUID(),
         name: activeResult.mealName,
@@ -776,7 +776,12 @@ function LumeFitApp() {
       return [first, ...prev].slice(0, 5);
     });
 
-    setToastMessage(`✅ ${kcal} kcal adicionadas ao ${mealLabels[selectedMeal].replace(/^[^ ]+ /, "").toLowerCase()}!`);
+    const selectedMealName = localizedMeals[selectedMeal].replace(/^[^ ]+ /, "").toLowerCase();
+    setToastMessage(
+      appLanguage === "en"
+        ? `✅ ${kcal} kcal added to ${selectedMealName}!`
+        : `✅ ${kcal} kcal adicionadas ao ${selectedMealName}!`,
+    );
     setShowToast(true);
     setShowConfetti(true);
 
@@ -807,8 +812,14 @@ function LumeFitApp() {
     setShowPlanPresentation(true);
   };
 
-  const shareSummary = `A minha consistência no LUMEfit 💚\n${profile.name || "Utilizadora"}\nMeta: ${profile.calorieGoal} kcal • ${(profile.hydrationGoalMl / 1000).toFixed(1)}L\nHoje: ${consumedCalories} kcal e ${(waterIntakeMl / 1000).toFixed(2)}L`;
-  const weightShareSummary = `A minha evolução de peso no LUMEfit 💚\n${profile.name || "Utilizadora"}\nPeso anterior: ${previousWeight.toFixed(1)}kg\nPeso atual: ${profile.weight.toFixed(1)}kg\nPeso desejado: ${profile.targetWeight.toFixed(1)}kg`;
+  const shareSummary =
+    appLanguage === "en"
+      ? `My consistency in LUMEfit 💚\n${profile.name || "User"}\nGoal: ${profile.calorieGoal} kcal • ${(profile.hydrationGoalMl / 1000).toFixed(1)}L\nToday: ${consumedCalories} kcal and ${(waterIntakeMl / 1000).toFixed(2)}L`
+      : `A minha consistência no LUMEfit 💚\n${profile.name || "Utilizadora"}\nMeta: ${profile.calorieGoal} kcal • ${(profile.hydrationGoalMl / 1000).toFixed(1)}L\nHoje: ${consumedCalories} kcal e ${(waterIntakeMl / 1000).toFixed(2)}L`;
+  const weightShareSummary =
+    appLanguage === "en"
+      ? `My weight evolution in LUMEfit 💚\n${profile.name || "User"}\nPrevious weight: ${previousWeight.toFixed(1)}kg\nCurrent weight: ${profile.weight.toFixed(1)}kg\nTarget weight: ${profile.targetWeight.toFixed(1)}kg`
+      : `A minha evolução de peso no LUMEfit 💚\n${profile.name || "Utilizadora"}\nPeso anterior: ${previousWeight.toFixed(1)}kg\nPeso atual: ${profile.weight.toFixed(1)}kg\nPeso desejado: ${profile.targetWeight.toFixed(1)}kg`;
   const activeShareSummary = shareMode === "weight" ? weightShareSummary : shareSummary;
 
   const handleGenerateShareImage = async () => {
@@ -1227,7 +1238,7 @@ function LumeFitApp() {
     setTimeout(() => setShowToast(false), 2400);
   };
 
-  const currentMealTitle = mealLabels[selectedMeal];
+  const currentMealTitle = localizedMeals[selectedMeal];
 
   return (
     <main className="relative min-h-screen overflow-hidden">
