@@ -378,14 +378,20 @@ function LumeFitApp() {
         setProfile(nextProfile);
       }
       if (parsed.entries) setEntries(parsed.entries);
-      if (typeof parsed.notifications === "boolean") setNotifications(parsed.notifications);
-      if (typeof parsed.metric === "boolean") setMetric(parsed.metric);
       if (typeof parsed.waterIntakeMl === "number") setWaterIntakeMl(parsed.waterIntakeMl);
       if (typeof parsed.onboardingDone === "boolean") setOnboardingDone(parsed.onboardingDone);
       if (typeof parsed.firstUseAt === "string") setFirstUseAt(parsed.firstUseAt);
+      if (typeof parsed.previousWeight === "number") setPreviousWeight(parsed.previousWeight);
       if (parsed.completedTrainingPhases) setCompletedTrainingPhases(parsed.completedTrainingPhases);
       if (parsed.recentAnalyses && parsed.recentAnalyses.length > 0) {
         setRecentAnalyses(parsed.recentAnalyses.slice(0, 5));
+      }
+
+      if (typeof parsed.lastSeenAt === "string") {
+        const elapsed = Date.now() - new Date(parsed.lastSeenAt).getTime();
+        if (elapsed >= 6 * 60 * 60 * 1000) {
+          setShowMotivationNotification(true);
+        }
       }
       setView(parsed.onboardingDone ? "home" : "setup");
     } catch {
@@ -399,26 +405,60 @@ function LumeFitApp() {
       JSON.stringify({
         profile,
         entries,
-        notifications,
-        metric,
         recentAnalyses,
         waterIntakeMl,
         onboardingDone,
         completedTrainingPhases,
         firstUseAt,
+        previousWeight,
       }),
     );
   }, [
     profile,
     entries,
-    notifications,
-    metric,
     recentAnalyses,
     waterIntakeMl,
     onboardingDone,
     completedTrainingPhases,
     firstUseAt,
+    previousWeight,
   ]);
+
+  useEffect(() => {
+    const saveLastSeenAt = () => {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      let parsed: PersistedState = {};
+      if (raw) {
+        try {
+          parsed = JSON.parse(raw) as PersistedState;
+        } catch {
+          parsed = {};
+        }
+      }
+
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          ...parsed,
+          lastSeenAt: new Date().toISOString(),
+        }),
+      );
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        saveLastSeenAt();
+      }
+    };
+
+    window.addEventListener("beforeunload", saveLastSeenAt);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.removeEventListener("beforeunload", saveLastSeenAt);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (mealStage !== "analyzing") return;
