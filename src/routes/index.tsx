@@ -151,7 +151,7 @@ function LumeFitApp() {
   const consumedCalories = entries.reduce((sum, item) => sum + item.calories, 0);
   const remainingCalories = Math.max(profile.calorieGoal - consumedCalories, 0);
   const caloriePercent = Math.min((consumedCalories / profile.calorieGoal) * 100, 100);
-  const ringColor =
+  const ringGlow =
     caloriePercent < 70
       ? "var(--color-brand-success)"
       : caloriePercent < 92
@@ -374,18 +374,25 @@ function LumeFitApp() {
                     <h3 className="text-sm text-muted-foreground">Calorias de hoje</h3>
                     <div className="mx-auto mt-4 h-40 w-40">
                       <svg viewBox="0 0 120 120" className="h-full w-full">
+                        <defs>
+                          <linearGradient id="calorieRingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="var(--color-brand-accent-1)" />
+                            <stop offset="100%" stopColor="var(--color-brand-accent-2)" />
+                          </linearGradient>
+                        </defs>
                         <circle cx="60" cy="60" r="52" fill="none" stroke="var(--color-glass-border)" strokeWidth="8" />
                         <circle
                           cx="60"
                           cy="60"
                           r="52"
                           fill="none"
-                          stroke={ringColor}
+                          stroke="url(#calorieRingGradient)"
                           strokeWidth="8"
                           strokeDasharray={`${(caloriePercent / 100) * 327} 327`}
                           strokeLinecap="round"
                           transform="rotate(-90 60 60)"
                           className="transition-all duration-500"
+                          style={{ filter: `drop-shadow(0 0 6px ${ringGlow})` }}
                         />
                       </svg>
                       <div className="-mt-24 text-center">
@@ -415,7 +422,10 @@ function LumeFitApp() {
                       const total = mealsByType[meal].reduce((sum, item) => sum + item.calories, 0);
                       const isOpen = expandedMeals.includes(meal);
                       return (
-                        <article key={meal} className="glass-card rounded-xl p-3">
+                        <article
+                          key={meal}
+                          className="glass-card rounded-xl border-l-4 border-l-transparent p-3 hover:border-l-brand-accent-1 hover:bg-white/85"
+                        >
                           <button
                             type="button"
                             onClick={() =>
@@ -561,7 +571,10 @@ function LumeFitApp() {
                   "7 dias consecutivos 🔥",
                   "Bebeu água hoje 💧",
                 ].map((badge) => (
-                  <article key={badge} className="glass-card animate-pulse rounded-xl p-3 text-sm font-medium">
+                  <article
+                    key={badge}
+                    className="animate-pulse rounded-xl border border-brand-accent-1/40 bg-brand-accent-1/15 p-3 text-sm font-medium"
+                  >
                     {badge}
                   </article>
                 ))}
