@@ -642,6 +642,7 @@ function LumeFitApp() {
     };
   }, [activeResult, portionMultiplier, mealStage]);
 
+  const t = uiText[appLanguage];
   const localizedAnalysisMessages = ANALYSIS_MESSAGES[appLanguage];
   const localizedMeals = localizedMealLabels[appLanguage];
   const localizedShortWeekdays = localizedWeekdays[appLanguage];
@@ -729,6 +730,11 @@ function LumeFitApp() {
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", appTheme === "dark");
+    document.documentElement.lang = appLanguage === "en" ? "en" : "pt-MZ";
+  }, [appLanguage, appTheme]);
 
   const shellClass =
     "mx-auto min-h-screen w-full max-w-md px-4 pb-28 pt-5 text-foreground animate-fade-in sm:max-w-2xl";
