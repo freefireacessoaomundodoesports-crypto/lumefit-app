@@ -577,7 +577,14 @@ function LumeFitApp() {
     };
   }, [activeResult, portionMultiplier, mealStage]);
 
-  const todayQuote = quotes[new Date().getDate() % quotes.length];
+  const localizedAnalysisMessages = ANALYSIS_MESSAGES[appLanguage];
+  const localizedMeals = localizedMealLabels[appLanguage];
+  const localizedShortWeekdays = localizedWeekdays[appLanguage];
+  const localizedQuoteList = localizedQuotes[appLanguage];
+  const localizedTipList = localizedTips[appLanguage];
+  const localeTag = appLanguage === "en" ? "en-US" : "pt-MZ";
+
+  const todayQuote = localizedQuoteList[new Date().getDate() % localizedQuoteList.length];
 
   const consumedCalories = entries.reduce((sum, item) => sum + item.calories, 0);
   const remainingCalories = Math.max(profile.calorieGoal - consumedCalories, 0);
@@ -646,14 +653,14 @@ function LumeFitApp() {
 
   const weeklyBars = useMemo(
     () =>
-      ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((d, index) => {
+      localizedShortWeekdays.map((d, index) => {
         const base = profile.calorieGoal - 160 + index * 40;
         return { day: d, calories: base };
       }),
-    [profile.calorieGoal],
+    [localizedShortWeekdays, profile.calorieGoal],
   );
 
-  const currentTimestamp = new Date().toLocaleTimeString("pt-MZ", {
+  const currentTimestamp = new Date().toLocaleTimeString(localeTag, {
     hour: "2-digit",
     minute: "2-digit",
   });
