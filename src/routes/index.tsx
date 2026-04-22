@@ -237,6 +237,10 @@ const uiText = {
     navProgress: "Progresso",
     navWorkouts: "Treinos",
     navProfile: "Perfil",
+    onboardingCityLabel: "Cidade",
+    onboardingCityPlaceholder: "Escreve a tua cidade",
+    onboardingNameLabel: "Nome",
+    onboardingNamePlaceholder: "Escreve o teu nome",
   },
   en: {
     appName: "LUMEfit",
@@ -268,6 +272,10 @@ const uiText = {
     navProgress: "Progress",
     navWorkouts: "Workouts",
     navProfile: "Profile",
+    onboardingCityLabel: "City",
+    onboardingCityPlaceholder: "Enter your city",
+    onboardingNameLabel: "Name",
+    onboardingNamePlaceholder: "Enter your name",
   },
 } as const;
 
@@ -448,7 +456,7 @@ function LumeFitApp() {
   const [profile, setProfile] = useState<Profile>({
     name: "",
     age: 30,
-    city: "Maputo",
+    city: "",
     weight: 78,
     height: 163,
     targetWeight: 68,
@@ -1357,10 +1365,21 @@ function LumeFitApp() {
               </div>
 
               <div>
-                <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">Nome</p>
+                <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">{t.onboardingCityLabel}</p>
                 <Input
                   type="text"
-                  placeholder="Escreve o teu nome"
+                  placeholder={t.onboardingCityPlaceholder}
+                  value={profile.city}
+                  onChange={(e) => setProfile((p) => ({ ...p, city: e.target.value }))}
+                  className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-xl font-semibold"
+                />
+              </div>
+
+              <div>
+                <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">{t.onboardingNameLabel}</p>
+                <Input
+                  type="text"
+                  placeholder={t.onboardingNamePlaceholder}
                   value={profile.name}
                   onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
                   className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-xl font-semibold"
