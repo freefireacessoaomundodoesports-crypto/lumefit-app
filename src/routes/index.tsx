@@ -1249,7 +1249,7 @@ function LumeFitApp() {
             variant="outline"
             className="h-10 w-10 rounded-xl bg-glass"
             onClick={() => setShowTopMenu((prev) => !prev)}
-            aria-label="Abrir menu"
+            aria-label={t.menuOpenAria}
           >
             <Menu className="h-5 w-5" />
           </Button>
@@ -1267,7 +1267,18 @@ function LumeFitApp() {
                 }}
               >
                 <Share2 className="h-4 w-4" />
-                Compartilhar
+                {t.menuShare}
+              </button>
+              <button
+                type="button"
+                className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-brand-accent-3/30"
+                onClick={() => {
+                  setShowSettingsSheet(true);
+                  setShowTopMenu(false);
+                }}
+              >
+                <Sparkles className="h-4 w-4" />
+                {t.menuSettings}
               </button>
             </div>
           ) : null}
