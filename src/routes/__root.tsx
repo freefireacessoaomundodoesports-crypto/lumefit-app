@@ -29,19 +29,44 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "LUMEfit | Contador de Calorias" },
+      {
+        name: "description",
+        content:
+          "LUMEfit é um contador de calorias para mulheres moçambicanas que querem perder peso em casa.",
+      },
+      { property: "og:title", content: "LUMEfit | Contador de Calorias" },
+      {
+        property: "og:description",
+        content:
+          "Acompanha refeições moçambicanas, metas diárias e progresso semanal com uma experiência glassmorphism.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "LUMEfit | Contador de Calorias" },
+      {
+        name: "twitter:description",
+        content: "Regista refeições, controla calorias e segue o teu progresso diário.",
+      },
     ],
     links: [
       {
         rel: "stylesheet",
         href: appCss,
+      },
+      { rel: "canonical", href: "/" },
+      {
+        rel: "preconnect",
+        href: "https://fonts.googleapis.com",
+      },
+      {
+        rel: "preconnect",
+        href: "https://fonts.gstatic.com",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap",
       },
     ],
   }),
@@ -52,7 +77,7 @@ export const Route = createRootRoute({
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="pt-MZ">
       <head>
         <HeadContent />
       </head>
