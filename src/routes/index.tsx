@@ -18,11 +18,15 @@ import {
   ChevronDown,
   ChevronUp,
   CircleUserRound,
+  Droplets,
   Flame,
   Home,
   ImagePlus,
+  Sofa,
   Sparkles,
   UtensilsCrossed,
+  Dumbbell,
+  Footprints,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -49,6 +53,7 @@ export const Route = createFileRoute("/")({
 
 type ViewKey = "splash" | "setup" | "home" | "refeicoes" | "progresso" | "plano" | "perfil";
 type MealFlowStage = "camera" | "preview" | "analyzing" | "result";
+type SetupActivityLevel = "sedentario" | "moderado" | "intenso";
 
 type Profile = {
   name: string;
@@ -60,6 +65,23 @@ type Profile = {
   weeklyGoal: string;
   activityLevel: string;
   calorieGoal: number;
+  hydrationGoalMl: number;
+  macroGoals: {
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+};
+
+type GeneratedPlan = {
+  calorieGoal: number;
+  hydrationGoalMl: number;
+  macroGoals: {
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+  summary: string;
 };
 
 type MealEntry = {
@@ -175,6 +197,39 @@ function calcGoal(weight: number, height: number, age: number, activity: string,
   return Math.max(1200, Math.round(bmr * activityFactor - deficit));
 }
 
+function calcHydrationGoal(weight: number, activity: string) {
+  const base = weight * 33;
+  const extra = activity === "Sou moderadamente ativa" ? 350 : activity === "Caminho um pouco" ? 200 : 100;
+  return Math.max(1600, Math.round((base + extra) / 50) * 50);
+}
+
+function calcMacroGoals(calorieGoal: number) {
+  return {
+    protein: Math.round((calorieGoal * 0.3) / 4),
+    carbs: Math.round((calorieGoal * 0.45) / 4),
+    fat: Math.round((calorieGoal * 0.25) / 9),
+  };
+}
+
+function generatePlan(profile: Profile): GeneratedPlan {
+  const calorieGoal = calcGoal(
+    profile.weight,
+    profile.height,
+    profile.age,
+    profile.activityLevel,
+    profile.weeklyGoal,
+  );
+  const hydrationGoalMl = calcHydrationGoal(profile.weight, profile.activityLevel);
+  const macroGoals = calcMacroGoals(calorieGoal);
+
+  return {
+    calorieGoal,
+    hydrationGoalMl,
+    macroGoals,
+    summary: `Plano diário estimado para ${profile.name || "ti"}: foco em défice calórico moderado, hidratação consistente e distribuição equilibrada de macros.`,
+  };
+}
+
 function getTodayLabel() {
   return new Date().toLocaleDateString("pt-MZ", {
     weekday: "long",
@@ -205,12 +260,16 @@ function pickMockResult(seed?: string): MockMealResult {
 }
 
 function LumeFitApp() {
-  const [view, setView] = useState<ViewKey>("splash");
-  const [setupStep, setSetupStep] = useState(1);
+  const [view, setView] = useState<ViewKey>("setup");
+  const [onboardingDone, setOnboardingDone] = useState(false);
+  const [showPlanPresentation, setShowPlanPresentation] = useState(false);
+  const [generatedPlan, setGeneratedPlan] = useState<GeneratedPlan | null>(null);
+  const [setupActivity, setSetupActivity] = useState<SetupActivityLevel>("moderado");
   const [selectedMeal, setSelectedMeal] = useState<MealType>("almoco");
   const [expandedMeals, setExpandedMeals] = useState<MealType[]>([]);
   const [notifications, setNotifications] = useState(true);
   const [metric, setMetric] = useState(true);
+  const [waterIntakeMl, setWaterIntakeMl] = useState(0);
 
   const [mealStage, setMealStage] = useState<MealFlowStage>("camera");
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -241,6 +300,12 @@ function LumeFitApp() {
     weeklyGoal: weeklyGoals[1],
     activityLevel: activityLevels[1],
     calorieGoal: 1400,
+    hydrationGoalMl: 2500,
+    macroGoals: {
+      protein: 105,
+      carbs: 158,
+      fat: 39,
+    },
   });
 
   const [entries, setEntries] = useState<MealEntry[]>([]);
@@ -267,16 +332,31 @@ function LumeFitApp() {
         notifications?: boolean;
         metric?: boolean;
         recentAnalyses?: RecentMealAnalysis[];
+        waterIntakeMl?: number;
+        onboardingDone?: boolean;
       };
 
-      if (parsed.profile) setProfile(parsed.profile);
+      if (parsed.profile) {
+        const nextProfile = {
+          ...parsed.profile,
+          hydrationGoalMl:
+            typeof parsed.profile.hydrationGoalMl === "number"
+              ? parsed.profile.hydrationGoalMl
+              : calcHydrationGoal(parsed.profile.weight, parsed.profile.activityLevel),
+          macroGoals:
+            parsed.profile.macroGoals || calcMacroGoals(parsed.profile.calorieGoal || 1400),
+        };
+        setProfile(nextProfile);
+      }
       if (parsed.entries) setEntries(parsed.entries);
       if (typeof parsed.notifications === "boolean") setNotifications(parsed.notifications);
       if (typeof parsed.metric === "boolean") setMetric(parsed.metric);
+      if (typeof parsed.waterIntakeMl === "number") setWaterIntakeMl(parsed.waterIntakeMl);
+      if (typeof parsed.onboardingDone === "boolean") setOnboardingDone(parsed.onboardingDone);
       if (parsed.recentAnalyses && parsed.recentAnalyses.length > 0) {
         setRecentAnalyses(parsed.recentAnalyses.slice(0, 5));
       }
-      setView("home");
+      setView(parsed.onboardingDone ? "home" : "setup");
     } catch {
       localStorage.removeItem(STORAGE_KEY);
     }
@@ -291,9 +371,11 @@ function LumeFitApp() {
         notifications,
         metric,
         recentAnalyses,
+        waterIntakeMl,
+        onboardingDone,
       }),
     );
-  }, [profile, entries, notifications, metric, recentAnalyses]);
+  }, [profile, entries, notifications, metric, recentAnalyses, waterIntakeMl, onboardingDone]);
 
   useEffect(() => {
     if (mealStage !== "analyzing") return;
@@ -366,10 +448,45 @@ function LumeFitApp() {
         : "var(--color-brand-danger)";
 
   const macros = {
-    protein: Math.min(100, (consumedCalories * 0.3) / 4),
-    carbs: Math.min(100, (consumedCalories * 0.45) / 4),
-    fat: Math.min(100, (consumedCalories * 0.25) / 9),
+    protein: (consumedCalories * 0.3) / 4,
+    carbs: (consumedCalories * 0.45) / 4,
+    fat: (consumedCalories * 0.25) / 9,
   };
+  const macroProgress = {
+    protein: Math.min((macros.protein / Math.max(profile.macroGoals.protein, 1)) * 100, 100),
+    carbs: Math.min((macros.carbs / Math.max(profile.macroGoals.carbs, 1)) * 100, 100),
+    fat: Math.min((macros.fat / Math.max(profile.macroGoals.fat, 1)) * 100, 100),
+  };
+
+  const hydrationPercent = Math.min(100, (waterIntakeMl / Math.max(profile.hydrationGoalMl, 1)) * 100);
+  const hydrationGoalLiters = (profile.hydrationGoalMl / 1000).toFixed(1);
+
+  const onboardingActivityMap: Record<
+    SetupActivityLevel,
+    { title: string; subtitle: string; profileValue: (typeof activityLevels)[number] }
+  > = {
+    sedentario: {
+      title: "Sedentário",
+      subtitle: "Trabalho sentado, pouco movimento.",
+      profileValue: "Fico muito em casa",
+    },
+    moderado: {
+      title: "Moderado",
+      subtitle: "Caminhadas leves, 2-3x na semana.",
+      profileValue: "Caminho um pouco",
+    },
+    intenso: {
+      title: "Intenso / Atleta",
+      subtitle: "Treinos pesados diários e rotina ativa.",
+      profileValue: "Sou moderadamente ativa",
+    },
+  };
+
+  const onboardingPreviewProfile: Profile = {
+    ...profile,
+    activityLevel: onboardingActivityMap[setupActivity].profileValue,
+  };
+  const onboardingPlanPreview = generatePlan(onboardingPreviewProfile);
 
   const mealsByType = entries.reduce<Record<MealType, MealEntry[]>>(
     (acc, item) => {
@@ -458,173 +575,216 @@ function LumeFitApp() {
     setAnalysisMessageIndex(0);
   };
 
+  const handleGeneratePlan = () => {
+    const nextPlan = generatePlan(onboardingPreviewProfile);
+    setGeneratedPlan(nextPlan);
+    setShowPlanPresentation(true);
+  };
+
+  const applyGeneratedPlan = () => {
+    if (!generatedPlan) return;
+    setProfile((prev) => ({
+      ...prev,
+      activityLevel: onboardingActivityMap[setupActivity].profileValue,
+      calorieGoal: generatedPlan.calorieGoal,
+      hydrationGoalMl: generatedPlan.hydrationGoalMl,
+      macroGoals: generatedPlan.macroGoals,
+    }));
+    setWaterIntakeMl(0);
+    setOnboardingDone(true);
+    setShowPlanPresentation(false);
+    setToastMessage("✅ Metas aplicadas com sucesso.");
+    setShowToast(true);
+    setView("home");
+    setTimeout(() => setShowToast(false), 2400);
+  };
+
   const currentMealTitle = mealLabels[selectedMeal];
 
   return (
     <main className="relative min-h-screen overflow-hidden">
-      {view === "splash" && (
-        <section className={shellClass}>
-          <div className="glass-card mt-6 rounded-xl p-8 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-accent-3/30">
-              <Flame className="h-8 w-8 text-brand-accent-2" />
-            </div>
-            <h1 className="text-4xl font-bold">LUMEfit</h1>
-            <p className="mt-3 text-sm text-muted-foreground">O teu caminho para uma vida mais leve</p>
-            <div className="mt-8 space-y-3">
-              <Button
-                onClick={() => setView("setup")}
-                className="h-11 w-full bg-brand-accent-1 text-primary-foreground hover:scale-[1.02] hover:bg-brand-accent-2"
-              >
-                Começar Agora
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setView("setup")}
-                className="h-11 w-full bg-glass-muted hover:scale-[1.02]"
-              >
-                Já tenho conta
-              </Button>
-            </div>
-          </div>
-        </section>
-      )}
-
       {view === "setup" && (
         <section className={shellClass}>
-          <div className="glass-card rounded-xl p-5">
-            <p className="text-xs text-muted-foreground">Configuração {setupStep}/3</p>
-            {setupStep === 1 && (
-              <div className="mt-4 space-y-4">
-                <h2 className="text-xl font-semibold">Dados pessoais</h2>
-                <Input
-                  value={profile.name}
-                  onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
-                  placeholder="O teu nome"
-                  className="bg-glass-muted"
-                />
-                <Input
-                  type="number"
-                  value={profile.age}
-                  onChange={(e) => setProfile((p) => ({ ...p, age: Number(e.target.value) || 0 }))}
-                  placeholder="Idade"
-                  className="bg-glass-muted"
-                />
-                <select
-                  value={profile.city}
-                  onChange={(e) => setProfile((p) => ({ ...p, city: e.target.value }))}
-                  className="h-10 w-full rounded-md border border-glass-border bg-glass-muted px-3 text-sm"
-                >
-                  {cities.map((city) => (
-                    <option key={city}>{city}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+          <div className="glass-card rounded-[24px] p-0">
+            <div className="flex items-center justify-between border-b border-glass-border/70 px-4 py-3">
+              <button
+                type="button"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-glass-border bg-glass"
+              >
+                ✕
+              </button>
+              <p className="text-xl font-bold text-brand-accent-2">LumeFit</p>
+              <span className="h-10 w-10" />
+            </div>
 
-            {setupStep === 2 && (
-              <div className="mt-4 space-y-5">
-                <h2 className="text-xl font-semibold">Medidas corporais</h2>
-                <div>
-                  <p className="text-sm">Peso atual: {profile.weight} kg</p>
-                  <Slider
-                    min={40}
-                    max={140}
-                    value={[profile.weight]}
-                    onValueChange={([value]) => setProfile((p) => ({ ...p, weight: value }))}
-                  />
-                </div>
-                <div>
-                  <p className="text-sm">Altura: {profile.height} cm</p>
-                  <Slider
-                    min={140}
-                    max={195}
-                    value={[profile.height]}
-                    onValueChange={([value]) => setProfile((p) => ({ ...p, height: value }))}
-                  />
-                </div>
-                <Input
-                  type="number"
-                  value={profile.targetWeight}
-                  onChange={(e) => setProfile((p) => ({ ...p, targetWeight: Number(e.target.value) || 0 }))}
-                  placeholder="Peso alvo (kg)"
-                  className="bg-glass-muted"
-                />
+            <div className="space-y-5 p-4">
+              <div className="text-center">
+                <h1 className="text-5xl font-bold leading-tight text-foreground">
+                  Seu corpo, sua <span className="text-brand-accent-2">jornada.</span>
+                </h1>
+                <p className="mt-4 text-lg text-muted-foreground">
+                  Vamos criar um plano que respeita seu ritmo, sua rotina e sua essência.
+                </p>
               </div>
-            )}
 
-            {setupStep === 3 && (
-              <div className="mt-4 space-y-4">
-                <h2 className="text-xl font-semibold">Objetivos</h2>
-                <select
-                  value={profile.weeklyGoal}
-                  onChange={(e) => setProfile((p) => ({ ...p, weeklyGoal: e.target.value }))}
-                  className="h-10 w-full rounded-md border border-glass-border bg-glass-muted px-3 text-sm"
-                >
-                  {weeklyGoals.map((goal) => (
-                    <option key={goal}>{goal}</option>
-                  ))}
-                </select>
-                <select
-                  value={profile.activityLevel}
-                  onChange={(e) => setProfile((p) => ({ ...p, activityLevel: e.target.value }))}
-                  className="h-10 w-full rounded-md border border-glass-border bg-glass-muted px-3 text-sm"
-                >
-                  {activityLevels.map((activity) => (
-                    <option key={activity}>{activity}</option>
-                  ))}
-                </select>
-                <div className="rounded-lg border border-glass-border bg-glass-muted p-4">
-                  <p className="text-xs text-muted-foreground">Meta diária estimada</p>
-                  <p className="text-2xl font-bold text-brand-accent-2">
-                    {calcGoal(
-                      profile.weight,
-                      profile.height,
-                      profile.age,
-                      profile.activityLevel,
-                      profile.weeklyGoal,
-                    )}{" "}
-                    kcal
+              <article className="glass-card rounded-[20px] p-3">
+                <div className="relative overflow-hidden rounded-[18px] border border-glass-border/80 bg-gradient-to-b from-brand-accent-1/75 to-brand-accent-2/95 p-6 text-center text-primary-foreground">
+                  <div className="mx-auto flex h-44 w-44 items-center justify-center rounded-full bg-brand-accent-2/60 shadow-[inset_0_0_0_1px_var(--color-glass-border)]">
+                    <div>
+                      <p className="text-5xl">💚</p>
+                      <p className="mt-2 text-4xl font-semibold">Saúde</p>
+                      <p className="text-lg opacity-90">bem-estar</p>
+                    </div>
+                  </div>
+                  <p className="mt-4 text-sm tracking-[0.18em] text-primary-foreground/90">
+                    ● IA ATIVA • ANALISANDO BIOTIPO
                   </p>
                 </div>
-              </div>
-            )}
+              </article>
 
-            <div className="mt-6 flex gap-2">
-              <Button
-                variant="outline"
-                disabled={setupStep === 1}
-                onClick={() => setSetupStep((s) => Math.max(1, s - 1))}
-                className="flex-1"
-              >
-                Voltar
-              </Button>
-              {setupStep < 3 ? (
-                <Button onClick={() => setSetupStep((s) => Math.min(3, s + 1))} className="flex-1">
-                  Continuar
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">Peso (kg)</p>
+                  <Input
+                    type="number"
+                    value={profile.weight}
+                    onChange={(e) => setProfile((p) => ({ ...p, weight: Number(e.target.value) || 0 }))}
+                    className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-2xl font-semibold"
+                  />
+                </div>
+                <div>
+                  <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">Altura (cm)</p>
+                  <Input
+                    type="number"
+                    value={profile.height}
+                    onChange={(e) => setProfile((p) => ({ ...p, height: Number(e.target.value) || 0 }))}
+                    className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-2xl font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">Sua idade</p>
+                <div className="glass-card flex items-center justify-between rounded-2xl px-3 py-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setProfile((p) => ({ ...p, age: Math.max(16, p.age - 1) }))}
+                    className="h-12 w-12 rounded-xl"
+                  >
+                    −
+                  </Button>
+                  <p className="text-4xl font-bold">{profile.age}</p>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setProfile((p) => ({ ...p, age: Math.min(75, p.age + 1) }))}
+                    className="h-12 w-12 rounded-xl"
+                  >
+                    +
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-3 text-sm font-semibold uppercase tracking-[0.08em]">Nível de atividade</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { key: "sedentario" as const, icon: Sofa },
+                    { key: "moderado" as const, icon: Footprints },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    const active = setupActivity === item.key;
+                    return (
+                      <button
+                        type="button"
+                        key={item.key}
+                        onClick={() => setSetupActivity(item.key)}
+                        className={`glass-card rounded-2xl p-4 text-left ${
+                          active ? "border-brand-accent-2 shadow-[inset_0_0_0_1px_var(--color-brand-accent-2)]" : ""
+                        }`}
+                      >
+                        <Icon className="h-6 w-6 text-brand-accent-2" />
+                        <p className="mt-3 text-2xl font-semibold">{onboardingActivityMap[item.key].title}</p>
+                        <p className="text-sm text-muted-foreground">{onboardingActivityMap[item.key].subtitle}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSetupActivity("intenso")}
+                  className={`glass-card mt-3 flex w-full items-center gap-3 rounded-2xl p-4 text-left ${
+                    setupActivity === "intenso"
+                      ? "border-brand-accent-2 shadow-[inset_0_0_0_1px_var(--color-brand-accent-2)]"
+                      : ""
+                  }`}
+                >
+                  <Dumbbell className="h-6 w-6 text-brand-accent-2" />
+                  <div>
+                    <p className="text-2xl font-semibold">{onboardingActivityMap.intenso.title}</p>
+                    <p className="text-sm text-muted-foreground">{onboardingActivityMap.intenso.subtitle}</p>
+                  </div>
+                </button>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <Button onClick={handleGeneratePlan} className="h-14 w-full rounded-[24px] text-lg">
+                  <Sparkles className="h-5 w-5" />
+                  Gerar meu Plano com IA
                 </Button>
-              ) : (
-                <Button onClick={() => {
-                  setProfile((prev) => ({
-                    ...prev,
-                    calorieGoal: calcGoal(
-                      prev.weight,
-                      prev.height,
-                      prev.age,
-                      prev.activityLevel,
-                      prev.weeklyGoal,
-                    ),
-                  }));
-                  setView("home");
-                }} className="flex-1 bg-brand-accent-1 hover:bg-brand-accent-2">
-                  Guardar
-                </Button>
-              )}
+                <p className="px-2 text-center text-sm text-muted-foreground">
+                  Ao continuar, nossa IA processará seus dados para criar um plano nutricional e de treinos personalizado.
+                </p>
+              </div>
             </div>
+
+            {showPlanPresentation && generatedPlan ? (
+              <div className="border-t border-glass-border/70 bg-glass/70 p-4">
+                <article className="glass-card rounded-[20px] p-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Apresentação do plano</p>
+                  <h3 className="mt-2 text-2xl font-bold text-brand-accent-2">Plano diário recomendado</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{generatedPlan.summary}</p>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl border border-brand-accent-1/25 bg-glass px-3 py-4">
+                      <p className="text-xs text-muted-foreground">Meta calórica</p>
+                      <p className="text-3xl font-bold">{generatedPlan.calorieGoal}</p>
+                      <p className="text-xs text-muted-foreground">kcal/dia</p>
+                    </div>
+                    <div className="rounded-2xl border border-brand-accent-1/25 bg-glass px-3 py-4">
+                      <p className="text-xs text-muted-foreground">Hidratação diária</p>
+                      <p className="text-3xl font-bold">{(generatedPlan.hydrationGoalMl / 1000).toFixed(1)}L</p>
+                      <p className="text-xs text-muted-foreground">água/dia</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-xl border border-glass-border bg-glass px-2 py-3">
+                      <p className="text-xs text-muted-foreground">Proteína</p>
+                      <p className="text-lg font-bold">{generatedPlan.macroGoals.protein}g</p>
+                    </div>
+                    <div className="rounded-xl border border-glass-border bg-glass px-2 py-3">
+                      <p className="text-xs text-muted-foreground">Carboidrato</p>
+                      <p className="text-lg font-bold">{generatedPlan.macroGoals.carbs}g</p>
+                    </div>
+                    <div className="rounded-xl border border-glass-border bg-glass px-2 py-3">
+                      <p className="text-xs text-muted-foreground">Gordura</p>
+                      <p className="text-lg font-bold">{generatedPlan.macroGoals.fat}g</p>
+                    </div>
+                  </div>
+
+                  <Button onClick={applyGeneratedPlan} className="mt-5 h-12 w-full rounded-2xl">
+                    Aplicar metas
+                  </Button>
+                </article>
+              </div>
+            ) : null}
           </div>
         </section>
       )}
 
-      {view !== "splash" && view !== "setup" && (
+      {view !== "setup" && (
         <section className={shellClass}>
           {(view === "home" || view === "refeicoes") && (
             <>
@@ -684,11 +844,61 @@ function LumeFitApp() {
                     ].map((macro) => (
                       <article key={macro.label} className="glass-card rounded-xl p-3">
                         <p className="text-xs text-muted-foreground">{macro.label}</p>
-                        <p className="my-2 text-sm font-medium">{Math.round(macro.value)}g</p>
-                        <Progress value={Math.min(macro.value, 100)} />
+                        <p className="my-2 text-sm font-medium">
+                          {Math.round(macro.value)}g / {profile.macroGoals[macro.label === "Proteínas" ? "protein" : macro.label === "Carboidratos" ? "carbs" : "fat"]}g
+                        </p>
+                        <Progress
+                          value={
+                            macro.label === "Proteínas"
+                              ? macroProgress.protein
+                              : macro.label === "Carboidratos"
+                                ? macroProgress.carbs
+                                : macroProgress.fat
+                          }
+                        />
                       </article>
                     ))}
                   </div>
+
+                  <article className="glass-card mt-4 rounded-[20px] p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="text-sm font-semibold">Hidratação de Hoje</h3>
+                      <span className="rounded-full border border-brand-accent-1/30 bg-brand-accent-1/15 px-3 py-1 text-xs font-medium">
+                        {(waterIntakeMl / 1000).toFixed(2)}L / {hydrationGoalLiters}L
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="water-bottle-shell">
+                        <div className="water-bottle-neck" />
+                        <div className="water-bottle-body">
+                          <div className="water-bottle-fill" style={{ height: `${hydrationPercent}%` }} />
+                        </div>
+                      </div>
+                      <div className="flex-1 space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                          Meta diária baseada no teu plano: <strong className="text-foreground">{hydrationGoalLiters} litros</strong>
+                        </p>
+                        <Progress value={hydrationPercent} />
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            className="h-10 rounded-xl"
+                            onClick={() => setWaterIntakeMl((prev) => Math.min(profile.hydrationGoalMl, prev + 330))}
+                          >
+                            <Droplets className="h-4 w-4" />
+                            +330ml
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="h-10 rounded-xl"
+                            onClick={() => setWaterIntakeMl((prev) => Math.max(0, prev - 50))}
+                          >
+                            -50ml
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
 
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     {(Object.keys(mealLabels) as MealType[]).map((meal) => {
@@ -1194,7 +1404,11 @@ function LumeFitApp() {
                     localStorage.removeItem(STORAGE_KEY);
                     setEntries([]);
                     setRecentAnalyses(initialRecentAnalyses);
-                    setView("splash");
+                    setWaterIntakeMl(0);
+                    setOnboardingDone(false);
+                    setShowPlanPresentation(false);
+                    setGeneratedPlan(null);
+                    setView("setup");
                   }}
                 >
                   Logout
@@ -1206,7 +1420,7 @@ function LumeFitApp() {
         </section>
       )}
 
-      {view !== "splash" && view !== "setup" && (
+      {view !== "setup" && (
         <nav className="frosted-nav fixed bottom-3 left-1/2 z-20 flex w-[calc(100%-1.5rem)] -translate-x-1/2 items-center justify-between rounded-xl px-2 py-2 sm:max-w-md">
           {[
             { key: "home", label: "Home", icon: Home },
