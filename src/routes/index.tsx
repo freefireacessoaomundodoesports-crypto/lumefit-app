@@ -688,7 +688,7 @@ function LumeFitApp() {
 
               <div>
                 <p className="mb-3 text-sm font-semibold uppercase tracking-[0.08em]">Nível de atividade</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Nível de atividade">
                   {[
                     { key: "sedentario" as const, icon: Sofa },
                     { key: "moderado" as const, icon: Footprints },
@@ -700,11 +700,22 @@ function LumeFitApp() {
                         type="button"
                         key={item.key}
                         onClick={() => setSetupActivity(item.key)}
+                        role="radio"
+                        aria-checked={active}
                         className={`glass-card rounded-2xl p-4 text-left ${
                           active ? "border-brand-accent-2 shadow-[inset_0_0_0_1px_var(--color-brand-accent-2)]" : ""
                         }`}
                       >
-                        <Icon className="h-6 w-6 text-brand-accent-2" />
+                        <div className="flex items-center justify-between">
+                          <Icon className="h-6 w-6 text-brand-accent-2" />
+                          {active ? (
+                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-brand-accent-2 bg-brand-accent-1/20 text-brand-accent-2">
+                              <Check className="h-4 w-4" />
+                            </span>
+                          ) : (
+                            <span className="h-6 w-6 rounded-full border border-brand-accent-1/35" />
+                          )}
+                        </div>
                         <p className="mt-3 text-2xl font-semibold">{onboardingActivityMap[item.key].title}</p>
                         <p className="text-sm text-muted-foreground">{onboardingActivityMap[item.key].subtitle}</p>
                       </button>
@@ -714,6 +725,8 @@ function LumeFitApp() {
                 <button
                   type="button"
                   onClick={() => setSetupActivity("intenso")}
+                  role="radio"
+                  aria-checked={setupActivity === "intenso"}
                   className={`glass-card mt-3 flex w-full items-center gap-3 rounded-2xl p-4 text-left ${
                     setupActivity === "intenso"
                       ? "border-brand-accent-2 shadow-[inset_0_0_0_1px_var(--color-brand-accent-2)]"
@@ -725,6 +738,13 @@ function LumeFitApp() {
                     <p className="text-2xl font-semibold">{onboardingActivityMap.intenso.title}</p>
                     <p className="text-sm text-muted-foreground">{onboardingActivityMap.intenso.subtitle}</p>
                   </div>
+                  {setupActivity === "intenso" ? (
+                    <span className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-full border border-brand-accent-2 bg-brand-accent-1/20 text-brand-accent-2">
+                      <Check className="h-4 w-4" />
+                    </span>
+                  ) : (
+                    <span className="ml-auto h-6 w-6 rounded-full border border-brand-accent-1/35" />
+                  )}
                 </button>
               </div>
 
@@ -855,6 +875,13 @@ function LumeFitApp() {
                                 ? macroProgress.carbs
                                 : macroProgress.fat
                           }
+                          indicatorClassName={
+                            macro.label === "Proteínas"
+                              ? "bg-macro-protein"
+                              : macro.label === "Carboidratos"
+                                ? "bg-macro-carbs"
+                                : "bg-macro-fat"
+                          }
                         />
                       </article>
                     ))}
@@ -879,7 +906,7 @@ function LumeFitApp() {
                         <p className="text-sm text-muted-foreground">
                           Meta diária baseada no teu plano: <strong className="text-foreground">{hydrationGoalLiters} litros</strong>
                         </p>
-                        <Progress value={hydrationPercent} />
+                        <Progress value={hydrationPercent} indicatorClassName="bg-hydration" />
                         <div className="grid grid-cols-2 gap-2">
                           <Button
                             className="h-10 rounded-xl"
