@@ -68,6 +68,10 @@
   --color-brand-success: var(--brand-success);
   --color-brand-warning: var(--brand-warning);
   --color-brand-danger: var(--brand-danger);
+  --color-macro-protein: var(--macro-protein);
+  --color-macro-carbs: var(--macro-carbs);
+  --color-macro-fat: var(--macro-fat);
+  --color-hydration: var(--hydration);
 }
 
 :root {
@@ -113,6 +117,10 @@
   --brand-success: oklch(0.74 0.18 152);
   --brand-warning: oklch(0.68 0.14 153);
   --brand-danger: oklch(0.58 0.11 154);
+  --macro-protein: oklch(0.79 0.16 65);
+  --macro-carbs: oklch(0.91 0.16 103);
+  --macro-fat: oklch(0.62 0.2 305);
+  --hydration: oklch(0.65 0.16 252);
 }
 
 .dark {
@@ -157,6 +165,10 @@
   --brand-success: oklch(0.74 0.18 152);
   --brand-warning: oklch(0.68 0.14 153);
   --brand-danger: oklch(0.58 0.11 154);
+  --macro-protein: oklch(0.79 0.16 65);
+  --macro-carbs: oklch(0.91 0.16 103);
+  --macro-fat: oklch(0.62 0.2 305);
+  --hydration: oklch(0.65 0.16 252);
 }
 
 @layer base {
