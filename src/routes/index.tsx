@@ -1,17 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
   Camera,
   Check,
   ChevronDown,
@@ -69,6 +58,18 @@ type Profile = {
     carbs: number;
     fat: number;
   };
+};
+
+type PersistedState = {
+  profile?: Profile;
+  entries?: MealEntry[];
+  notifications?: boolean;
+  metric?: boolean;
+  recentAnalyses?: RecentMealAnalysis[];
+  waterIntakeMl?: number;
+  onboardingDone?: boolean;
+  completedTrainingPhases?: Record<TrainingPhaseKey, boolean>;
+  firstUseAt?: string;
 };
 
 type GeneratedPlan = {
@@ -287,6 +288,7 @@ function LumeFitApp() {
   const [notifications, setNotifications] = useState(true);
   const [metric, setMetric] = useState(true);
   const [waterIntakeMl, setWaterIntakeMl] = useState(0);
+  const [firstUseAt, setFirstUseAt] = useState(() => new Date().toISOString());
 
   const [mealStage, setMealStage] = useState<MealFlowStage>("camera");
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -350,16 +352,7 @@ function LumeFitApp() {
     if (!raw) return;
 
     try {
-      const parsed = JSON.parse(raw) as {
-        profile?: Profile;
-        entries?: MealEntry[];
-        notifications?: boolean;
-        metric?: boolean;
-        recentAnalyses?: RecentMealAnalysis[];
-        waterIntakeMl?: number;
-        onboardingDone?: boolean;
-        completedTrainingPhases?: Record<TrainingPhaseKey, boolean>;
-      };
+      const parsed = JSON.parse(raw) as PersistedState;
 
       if (parsed.profile) {
         const nextProfile = {
@@ -378,6 +371,7 @@ function LumeFitApp() {
       if (typeof parsed.metric === "boolean") setMetric(parsed.metric);
       if (typeof parsed.waterIntakeMl === "number") setWaterIntakeMl(parsed.waterIntakeMl);
       if (typeof parsed.onboardingDone === "boolean") setOnboardingDone(parsed.onboardingDone);
+      if (typeof parsed.firstUseAt === "string") setFirstUseAt(parsed.firstUseAt);
       if (parsed.completedTrainingPhases) setCompletedTrainingPhases(parsed.completedTrainingPhases);
       if (parsed.recentAnalyses && parsed.recentAnalyses.length > 0) {
         setRecentAnalyses(parsed.recentAnalyses.slice(0, 5));
@@ -400,6 +394,7 @@ function LumeFitApp() {
         waterIntakeMl,
         onboardingDone,
         completedTrainingPhases,
+        firstUseAt,
       }),
     );
   }, [
@@ -411,6 +406,7 @@ function LumeFitApp() {
     waterIntakeMl,
     onboardingDone,
     completedTrainingPhases,
+    firstUseAt,
   ]);
 
   useEffect(() => {
@@ -496,6 +492,12 @@ function LumeFitApp() {
 
   const hydrationPercent = Math.min(100, (waterIntakeMl / Math.max(profile.hydrationGoalMl, 1)) * 100);
   const hydrationGoalLiters = (profile.hydrationGoalMl / 1000).toFixed(1);
+  const usageDays = useMemo(() => {
+    const start = new Date(firstUseAt);
+    const now = new Date();
+    const diff = now.getTime() - start.getTime();
+    return Math.max(1, Math.floor(diff / (1000 * 60 * 60 * 24)) + 1);
+  }, [firstUseAt]);
 
   const onboardingActivityMap: Record<
     SetupActivityLevel,
