@@ -900,6 +900,8 @@ function LumeFitApp() {
                 type="button"
                 className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-brand-accent-3/30"
                 onClick={() => {
+                  setShareMode("general");
+                  setShareImageUrl(null);
                   setShowShareSheet(true);
                   setShowTopMenu(false);
                 }}
@@ -1818,29 +1820,18 @@ function LumeFitApp() {
                   <Input
                     type="number"
                     value={profile.weight}
-                    onChange={(e) => setProfile((prev) => ({ ...prev, weight: Number(e.target.value) || 0 }))}
+                    onChange={(e) => {
+                      const nextWeight = Number(e.target.value) || 0;
+                      setPreviousWeight(profile.weight);
+                      setProfile((prev) => ({ ...prev, weight: nextWeight }));
+                    }}
                     className="h-11 rounded-xl bg-glass-muted"
                   />
                   <span className="text-sm text-muted-foreground">kg</span>
                 </div>
               </div>
 
-              <div className="glass-card mt-4 rounded-xl p-4">
-                <h3 className="text-sm font-semibold">Definições</h3>
-                <div className="mt-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Notificações</span>
-                    <Switch checked={notifications} onCheckedChange={setNotifications} />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Unidades (kg/cm)</span>
-                    <Switch checked={metric} onCheckedChange={setMetric} />
-                  </div>
-                </div>
-              </div>
-
               <div className="mt-4 grid gap-3">
-                <Button variant="secondary">Exportar Progresso</Button>
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -1850,6 +1841,16 @@ function LumeFitApp() {
                   }}
                 >
                   Mudar o meu plano
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShareMode("weight");
+                    setShareImageUrl(null);
+                    setShowShareSheet(true);
+                  }}
+                >
+                  Compartilhar peso anterior e atual
                 </Button>
                 <Button
                   variant="destructive"
@@ -1927,6 +1928,20 @@ function LumeFitApp() {
       {showToast ? (
         <div className="fixed left-1/2 top-4 z-50 w-[calc(100%-2rem)] -translate-x-1/2 rounded-xl border border-brand-accent-1/35 bg-glass px-4 py-3 text-sm font-medium shadow-[0_8px_24px_oklch(0.64_0.12_152_/_22%)] sm:max-w-sm">
           {toastMessage}
+        </div>
+      ) : null}
+
+      {showMotivationNotification ? (
+        <div className="fixed bottom-24 left-1/2 z-50 w-[calc(100%-2rem)] -translate-x-1/2 rounded-2xl border border-brand-accent-1/40 bg-glass p-4 shadow-[0_10px_30px_oklch(0.64_0.12_152_/_25%)] sm:max-w-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-brand-accent-2">Lembrete LUMEfit</p>
+          <p className="mt-1 text-sm font-medium">Guerreira, não se esqueça que tens um sonho para alcançar ✨</p>
+          <Button
+            size="sm"
+            className="mt-3 w-full rounded-xl"
+            onClick={() => setShowMotivationNotification(false)}
+          >
+            Entendi
+          </Button>
         </div>
       ) : null}
 
