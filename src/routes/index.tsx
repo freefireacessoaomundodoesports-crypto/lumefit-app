@@ -6,10 +6,16 @@ import {
   ChevronDown,
   ChevronUp,
   CircleUserRound,
+  Download,
   Droplets,
   Flame,
   Home,
   ImagePlus,
+  Menu,
+  MessageCircle,
+  Music2,
+  Send,
+  Share2,
   Sofa,
   Sparkles,
   UtensilsCrossed,
@@ -33,6 +39,7 @@ import {
   type MealType,
   type MockMealResult,
 } from "@/lib/lumefit-data";
+import shareLogo from "@/assets/share-logo.png";
 
 export const Route = createFileRoute("/")({
   component: LumeFitApp,
@@ -303,6 +310,10 @@ function LumeFitApp() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [showTopMenu, setShowTopMenu] = useState(false);
+  const [showShareSheet, setShowShareSheet] = useState(false);
+  const [isGeneratingShareImage, setIsGeneratingShareImage] = useState(false);
+  const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
   const [completedTrainingPhases, setCompletedTrainingPhases] = useState<
     Record<TrainingPhaseKey, boolean>
   >({
@@ -619,6 +630,171 @@ function LumeFitApp() {
     setShowPlanPresentation(true);
   };
 
+  const shareSummary = `A minha consistência no LUMEfit 💚\n${profile.name || "Utilizadora"}\nMeta: ${profile.calorieGoal} kcal • ${(profile.hydrationGoalMl / 1000).toFixed(1)}L\nHoje: ${consumedCalories} kcal e ${(waterIntakeMl / 1000).toFixed(2)}L`;
+
+  const handleGenerateShareImage = async () => {
+    setIsGeneratingShareImage(true);
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1080;
+      canvas.height = 1920;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("canvas_context");
+
+      const bg = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      bg.addColorStop(0, "#f0faf4");
+      bg.addColorStop(0.55, "#e8f5e9");
+      bg.addColorStop(1, "#f9fffe");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = "rgba(53, 167, 93, 0.14)";
+      ctx.beginPath();
+      ctx.arc(170, 240, 210, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(920, 410, 240, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(800, 1540, 300, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
+      const cardX = 70;
+      const cardY = 130;
+      const cardWidth = 940;
+      const cardHeight = 1650;
+      const radius = 48;
+      ctx.beginPath();
+      ctx.moveTo(cardX + radius, cardY);
+      ctx.lineTo(cardX + cardWidth - radius, cardY);
+      ctx.quadraticCurveTo(cardX + cardWidth, cardY, cardX + cardWidth, cardY + radius);
+      ctx.lineTo(cardX + cardWidth, cardY + cardHeight - radius);
+      ctx.quadraticCurveTo(cardX + cardWidth, cardY + cardHeight, cardX + cardWidth - radius, cardY + cardHeight);
+      ctx.lineTo(cardX + radius, cardY + cardHeight);
+      ctx.quadraticCurveTo(cardX, cardY + cardHeight, cardX, cardY + cardHeight - radius);
+      ctx.lineTo(cardX, cardY + radius);
+      ctx.quadraticCurveTo(cardX, cardY, cardX + radius, cardY);
+      ctx.closePath();
+      ctx.fill();
+
+      const logoImg = new Image();
+      logoImg.src = shareLogo;
+      await new Promise<void>((resolve, reject) => {
+        logoImg.onload = () => resolve();
+        logoImg.onerror = () => reject(new Error("logo_load_error"));
+      });
+      ctx.drawImage(logoImg, 460, 190, 160, 160);
+
+      ctx.fillStyle = "#248a4c";
+      ctx.textAlign = "center";
+      ctx.font = "700 52px Poppins, sans-serif";
+      ctx.fillText("LUMEfit", 540, 415);
+
+      ctx.fillStyle = "#2f7f52";
+      ctx.font = "600 44px Poppins, sans-serif";
+      ctx.fillText(`Parabéns, ${profile.name || "Campeã"}!`, 540, 500);
+
+      ctx.fillStyle = "#376b4d";
+      ctx.font = "500 34px Poppins, sans-serif";
+      ctx.fillText("A tua consistência está a transformar o teu corpo.", 540, 560);
+      ctx.fillText("Continua firme — cada dia conta!", 540, 610);
+
+      ctx.textAlign = "left";
+      const blockX = 145;
+      const lines = [
+        `Meta diária: ${profile.calorieGoal} kcal`,
+        `Meta de água: ${(profile.hydrationGoalMl / 1000).toFixed(1)}L`,
+        `Consumido hoje: ${consumedCalories} kcal`,
+        `Proteína: ${Math.round(macros.protein)}g • Carboidratos: ${Math.round(macros.carbs)}g • Gorduras: ${Math.round(macros.fat)}g`,
+        `Água bebida hoje: ${(waterIntakeMl / 1000).toFixed(2)}L`,
+      ];
+
+      ctx.fillStyle = "#1f5f3f";
+      ctx.font = "600 38px Poppins, sans-serif";
+      ctx.fillText("Resumo de hoje", blockX, 760);
+      ctx.font = "500 34px Poppins, sans-serif";
+      lines.forEach((line, index) => {
+        ctx.fillText(line, blockX, 840 + index * 88);
+      });
+
+      const fitnessGradient = ctx.createLinearGradient(140, 1290, 940, 1700);
+      fitnessGradient.addColorStop(0, "rgba(46, 181, 102, 0.23)");
+      fitnessGradient.addColorStop(1, "rgba(21, 138, 76, 0.34)");
+      ctx.fillStyle = fitnessGradient;
+      ctx.beginPath();
+      ctx.moveTo(140, 1290);
+      ctx.lineTo(940, 1290);
+      ctx.lineTo(940, 1700);
+      ctx.lineTo(140, 1700);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(36, 138, 76, 0.55)";
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(180, 1580);
+      ctx.quadraticCurveTo(360, 1450, 520, 1580);
+      ctx.quadraticCurveTo(700, 1710, 900, 1510);
+      ctx.stroke();
+
+      ctx.fillStyle = "#236e46";
+      ctx.textAlign = "center";
+      ctx.font = "600 30px Poppins, sans-serif";
+      ctx.fillText("Partilha a tua evolução e inspira outras mulheres 💚", 540, 1760);
+
+      setShareImageUrl(canvas.toDataURL("image/png"));
+      setToastMessage("Imagem gerada com sucesso ✨");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 1800);
+    } catch {
+      setToastMessage("Não foi possível gerar a imagem agora.");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2200);
+    } finally {
+      setIsGeneratingShareImage(false);
+    }
+  };
+
+  const handleDownloadShareImage = () => {
+    if (!shareImageUrl) return;
+    const link = document.createElement("a");
+    link.href = shareImageUrl;
+    link.download = `lumefit-partilha-${new Date().toISOString().slice(0, 10)}.png`;
+    link.click();
+  };
+
+  const handleNativeShare = async () => {
+    if (!shareImageUrl || !navigator.share) return;
+    const response = await fetch(shareImageUrl);
+    const blob = await response.blob();
+    const file = new File([blob], "lumefit-progresso.png", { type: "image/png" });
+    await navigator.share({
+      title: "LUMEfit",
+      text: shareSummary,
+      files: [file],
+    });
+  };
+
+  const handleShareChannel = async (channel: "whatsapp" | "telegram" | "tiktok") => {
+    if (shareImageUrl && navigator.share) {
+      try {
+        await handleNativeShare();
+        return;
+      } catch {
+        // fallback below
+      }
+    }
+
+    const encoded = encodeURIComponent(shareSummary);
+    const urlMap = {
+      whatsapp: `https://wa.me/?text=${encoded}`,
+      telegram: `https://t.me/share/url?url=https://lumefit.app&text=${encoded}`,
+      tiktok: "https://www.tiktok.com/upload",
+    };
+    window.open(urlMap[channel], "_blank", "noopener,noreferrer");
+  };
+
   const applyGeneratedPlan = () => {
     if (!generatedPlan) return;
     setProfile((prev) => ({
@@ -641,6 +817,36 @@ function LumeFitApp() {
 
   return (
     <main className="relative min-h-screen overflow-hidden">
+      {view !== "setup" && (
+        <div className="fixed left-4 top-4 z-40">
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-10 w-10 rounded-xl bg-glass"
+            onClick={() => setShowTopMenu((prev) => !prev)}
+            aria-label="Abrir menu"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+
+          {showTopMenu ? (
+            <div className="glass-card mt-2 min-w-[180px] rounded-2xl p-2">
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-brand-accent-3/30"
+                onClick={() => {
+                  setShowShareSheet(true);
+                  setShowTopMenu(false);
+                }}
+              >
+                <Share2 className="h-4 w-4" />
+                Compartilhar
+              </button>
+            </div>
+          ) : null}
+        </div>
+      )}
+
       {view === "setup" && (
         <section className={shellClass}>
           <div className="glass-card rounded-[24px] p-0">
@@ -1656,6 +1862,55 @@ function LumeFitApp() {
       {showToast ? (
         <div className="fixed left-1/2 top-4 z-50 w-[calc(100%-2rem)] -translate-x-1/2 rounded-xl border border-brand-accent-1/35 bg-glass px-4 py-3 text-sm font-medium shadow-[0_8px_24px_oklch(0.64_0.12_152_/_22%)] sm:max-w-sm">
           {toastMessage}
+        </div>
+      ) : null}
+
+      {showShareSheet ? (
+        <div className="fixed inset-0 z-50 flex items-end bg-background/35 p-3 backdrop-blur-sm sm:items-center sm:justify-center">
+          <div className="glass-card w-full rounded-[24px] p-4 sm:max-w-md">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Compartilhar progresso</h3>
+              <button
+                type="button"
+                onClick={() => setShowShareSheet(false)}
+                className="rounded-lg border border-glass-border px-2 py-1 text-sm"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <Button className="h-11 w-full rounded-xl" onClick={handleGenerateShareImage} disabled={isGeneratingShareImage}>
+              <Sparkles className="h-4 w-4" />
+              {isGeneratingShareImage ? "A gerar imagem..." : "Gerar imagem para partilha"}
+            </Button>
+
+            {shareImageUrl ? (
+              <>
+                <div className="mt-3 overflow-hidden rounded-[20px] border border-glass-border bg-glass">
+                  <img src={shareImageUrl} alt="Imagem de partilha LUMEfit" className="h-72 w-full object-cover" loading="lazy" />
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button variant="outline" className="rounded-xl" onClick={() => handleShareChannel("whatsapp")}>
+                    <MessageCircle className="h-4 w-4" /> WhatsApp
+                  </Button>
+                  <Button variant="outline" className="rounded-xl" onClick={() => handleShareChannel("telegram")}>
+                    <Send className="h-4 w-4" /> Telegram
+                  </Button>
+                  <Button variant="outline" className="rounded-xl" onClick={() => handleShareChannel("tiktok")}>
+                    <Music2 className="h-4 w-4" /> TikTok
+                  </Button>
+                  <Button variant="secondary" className="rounded-xl" onClick={handleDownloadShareImage}>
+                    <Download className="h-4 w-4" /> Baixar
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">
+                A imagem vai incluir teu nome, metas, consumo de hoje, macros, hidratação e identidade visual LUMEfit.
+              </p>
+            )}
+          </div>
         </div>
       ) : null}
 
