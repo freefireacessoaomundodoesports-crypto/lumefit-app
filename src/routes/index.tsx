@@ -1491,8 +1491,10 @@ function LumeFitApp() {
           {(view === "home" || view === "refeicoes") && (
             <>
               <header className="glass-card rounded-xl p-4">
-                <p className="text-sm text-muted-foreground">{getTodayLabel()}</p>
-                <h2 className="mt-1 text-2xl font-semibold">Bom dia, {profile.name || "Campeã"}! 🌟</h2>
+                <p className="text-sm text-muted-foreground">{getTodayLabel(localeTag)}</p>
+                <h2 className="mt-1 text-2xl font-semibold">
+                  {t.greeting}, {profile.name || t.champion}! 🌟
+                </h2>
                 <p className="mt-2 text-sm text-muted-foreground">{todayQuote}</p>
               </header>
 
