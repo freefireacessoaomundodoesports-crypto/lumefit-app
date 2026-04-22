@@ -27,7 +27,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
 import {
   activityLevels,
   cities,
@@ -70,13 +69,13 @@ type Profile = {
 type PersistedState = {
   profile?: Profile;
   entries?: MealEntry[];
-  notifications?: boolean;
-  metric?: boolean;
   recentAnalyses?: RecentMealAnalysis[];
   waterIntakeMl?: number;
   onboardingDone?: boolean;
   completedTrainingPhases?: Record<"primeiro-mes" | "segundo-mes" | "terceiro-mes", boolean>;
   firstUseAt?: string;
+  previousWeight?: number;
+  lastSeenAt?: string;
 };
 
 type GeneratedPlan = {
@@ -292,10 +291,9 @@ function LumeFitApp() {
   const [setupActivity, setSetupActivity] = useState<SetupActivityLevel>("moderado");
   const [selectedMeal, setSelectedMeal] = useState<MealType>("almoco");
   const [expandedMeals, setExpandedMeals] = useState<MealType[]>([]);
-  const [notifications, setNotifications] = useState(true);
-  const [metric, setMetric] = useState(true);
   const [waterIntakeMl, setWaterIntakeMl] = useState(0);
   const [firstUseAt, setFirstUseAt] = useState(() => new Date().toISOString());
+  const [previousWeight, setPreviousWeight] = useState(78);
 
   const [mealStage, setMealStage] = useState<MealFlowStage>("camera");
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -312,8 +310,10 @@ function LumeFitApp() {
   const [toastMessage, setToastMessage] = useState("");
   const [showTopMenu, setShowTopMenu] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
+  const [shareMode, setShareMode] = useState<"general" | "weight">("general");
   const [isGeneratingShareImage, setIsGeneratingShareImage] = useState(false);
   const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
+  const [showMotivationNotification, setShowMotivationNotification] = useState(false);
   const [completedTrainingPhases, setCompletedTrainingPhases] = useState<
     Record<TrainingPhaseKey, boolean>
   >({
