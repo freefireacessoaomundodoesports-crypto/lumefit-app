@@ -232,3 +232,106 @@
     box-shadow: 0 8px 26px oklch(0.64 0.12 152 / 14%);
   }
 }
+
+@keyframes scan-down {
+  0% {
+    transform: translateY(-10%);
+  }
+  100% {
+    transform: translateY(105%);
+  }
+}
+
+@keyframes radar-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes breathing-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 oklch(0.7 0.16 152 / 10%);
+  }
+  50% {
+    box-shadow: 0 0 20px oklch(0.7 0.16 152 / 45%);
+  }
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-40px) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(420deg);
+    opacity: 0;
+  }
+}
+
+@layer utilities {
+  .camera-pulse {
+    animation: breathing-glow 2.1s ease-in-out infinite;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .glass-chip {
+    transition: transform 0.28s ease, box-shadow 0.28s ease;
+  }
+
+  .glass-chip:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 22px oklch(0.64 0.12 152 / 16%);
+  }
+
+  .scan-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, var(--color-brand-accent-1), transparent);
+    box-shadow: 0 0 16px oklch(0.7 0.16 152 / 55%);
+    animation: scan-down 1.35s linear infinite;
+  }
+
+  .radar-ring {
+    position: absolute;
+    inset: 18px;
+    border-radius: 9999px;
+    border: 2px solid oklch(0.7 0.16 152 / 45%);
+    animation: radar-spin 2.2s linear infinite;
+  }
+
+  .focus-corners {
+    position: absolute;
+    inset: 10px;
+    border-radius: 18px;
+    border: 1px dashed oklch(0.7 0.16 152 / 55%);
+  }
+
+  .confetti-particle {
+    position: absolute;
+    top: -16px;
+    width: 9px;
+    height: 16px;
+    border-radius: 9999px;
+    background: linear-gradient(180deg, var(--color-brand-accent-1), var(--color-brand-accent-3));
+    box-shadow: 0 0 8px oklch(0.7 0.16 152 / 40%);
+    animation: confetti-fall 1.5s ease-in forwards;
+  }
+}
