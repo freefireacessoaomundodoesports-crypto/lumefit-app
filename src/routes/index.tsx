@@ -68,7 +68,7 @@ type PersistedState = {
   recentAnalyses?: RecentMealAnalysis[];
   waterIntakeMl?: number;
   onboardingDone?: boolean;
-  completedTrainingPhases?: Record<TrainingPhaseKey, boolean>;
+  completedTrainingPhases?: Record<"primeiro-mes" | "segundo-mes" | "terceiro-mes", boolean>;
   firstUseAt?: string;
 };
 
