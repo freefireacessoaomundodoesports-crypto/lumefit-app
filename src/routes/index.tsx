@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import * as RechartsPrimitive from "recharts";
 import {
   Camera,
   Check,
@@ -1353,15 +1354,23 @@ function LumeFitApp() {
               <div className="glass-card rounded-xl p-4">
                 <h2 className="text-lg font-semibold">Evolução do peso</h2>
                 <div className="mt-4 h-52">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={weightHistory}>
-                      <CartesianGrid stroke="var(--color-glass-border)" strokeDasharray="3 3" />
-                      <XAxis dataKey="week" stroke="var(--color-muted-foreground)" />
-                      <YAxis stroke="var(--color-muted-foreground)" />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="weight" stroke="var(--color-brand-accent-2)" strokeWidth={3} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <RechartsPrimitive.ResponsiveContainer width="100%" height="100%">
+                    <RechartsPrimitive.LineChart data={weightHistory}>
+                      <RechartsPrimitive.CartesianGrid
+                        stroke="var(--color-glass-border)"
+                        strokeDasharray="3 3"
+                      />
+                      <RechartsPrimitive.XAxis dataKey="week" stroke="var(--color-muted-foreground)" />
+                      <RechartsPrimitive.YAxis stroke="var(--color-muted-foreground)" />
+                      <RechartsPrimitive.Tooltip />
+                      <RechartsPrimitive.Line
+                        type="monotone"
+                        dataKey="weight"
+                        stroke="var(--color-brand-accent-2)"
+                        strokeWidth={3}
+                      />
+                    </RechartsPrimitive.LineChart>
+                  </RechartsPrimitive.ResponsiveContainer>
                 </div>
                 <p className="mt-2 text-sm text-brand-accent-2">Perdeste 2kg! 🎉</p>
               </div>
@@ -1384,13 +1393,17 @@ function LumeFitApp() {
               <div className="glass-card mt-4 rounded-xl p-4">
                 <h3 className="text-sm font-semibold">Resumo semanal</h3>
                 <div className="mt-3 h-44">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={weeklyBars}>
-                      <XAxis dataKey="day" stroke="var(--color-muted-foreground)" />
-                      <Tooltip />
-                      <Bar dataKey="calories" fill="var(--color-brand-accent-1)" radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <RechartsPrimitive.ResponsiveContainer width="100%" height="100%">
+                    <RechartsPrimitive.BarChart data={weeklyBars}>
+                      <RechartsPrimitive.XAxis dataKey="day" stroke="var(--color-muted-foreground)" />
+                      <RechartsPrimitive.Tooltip />
+                      <RechartsPrimitive.Bar
+                        dataKey="calories"
+                        fill="var(--color-brand-accent-1)"
+                        radius={[6, 6, 0, 0]}
+                      />
+                    </RechartsPrimitive.BarChart>
+                  </RechartsPrimitive.ResponsiveContainer>
                 </div>
               </div>
 
