@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Bar,
@@ -11,7 +11,19 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Bell, CircleUserRound, Flame, Home, Search, UtensilsCrossed } from "lucide-react";
+import {
+  Bell,
+  Camera,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  CircleUserRound,
+  Flame,
+  Home,
+  ImagePlus,
+  Sparkles,
+  UtensilsCrossed,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,13 +33,14 @@ import { Switch } from "@/components/ui/switch";
 import {
   activityLevels,
   cities,
-  foodDatabase,
   mealLabels,
+  mockMealResults,
   quotes,
   tips,
   weeklyGoals,
   weeklyPlan,
   type MealType,
+  type MockMealResult,
 } from "@/lib/lumefit-data";
 
 export const Route = createFileRoute("/")({
@@ -55,9 +68,58 @@ type MealEntry = {
   calories: number;
   quantity: number;
   timestamp: string;
+  photo?: string;
+};
+
+type RecentMealAnalysis = {
+  id: string;
+  name: string;
+  image: string;
+  resultId: string;
+  timestampLabel: string;
 };
 
 const STORAGE_KEY = "lumefit_state_v1";
+
+const ANALYSIS_MESSAGES = [
+  "🔍 A identificar os alimentos...",
+  "🌿 A reconhecer ingredientes locais...",
+  "⚖️ A estimar as porções...",
+  "🔥 A calcular as calorias...",
+  "💪 A analisar macronutrientes...",
+  "✨ A preparar o relatório...",
+];
+
+const confettiOffsets = [
+  "3%", "8%", "12%", "18%", "24%", "31%", "38%", "44%", "49%", "56%", "61%", "67%", "73%",
+  "79%", "84%", "89%", "94%",
+];
+
+function makePlaceholder(label: string, tone = "var(--color-brand-accent-3)") {
+  const encoded = encodeURIComponent(`
+    <svg xmlns='http://www.w3.org/2000/svg' width='600' height='420'>
+      <defs>
+        <linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>
+          <stop offset='0%' stop-color='${tone}' stop-opacity='0.95' />
+          <stop offset='100%' stop-color='#2ecc71' stop-opacity='0.68' />
+        </linearGradient>
+      </defs>
+      <rect width='600' height='420' rx='38' fill='url(#g)' />
+      <circle cx='120' cy='96' r='88' fill='white' fill-opacity='0.12' />
+      <circle cx='520' cy='320' r='108' fill='white' fill-opacity='0.12' />
+      <text x='50%' y='52%' dominant-baseline='middle' text-anchor='middle' fill='#1a7a45' font-size='42' font-family='Poppins, sans-serif' font-weight='700'>${label}</text>
+    </svg>
+  `);
+  return `data:image/svg+xml;charset=utf-8,${encoded}`;
+}
+
+const initialRecentAnalyses: RecentMealAnalysis[] = [
+  { id: "seed-1", name: "Xima com Matapa", image: makePlaceholder("Xima + Matapa"), resultId: mockMealResults[0].id, timestampLabel: "Hoje, 11:48" },
+  { id: "seed-2", name: "Arroz com Frango", image: makePlaceholder("Arroz + Frango", "#dcfce7"), resultId: mockMealResults[1].id, timestampLabel: "Hoje, 09:10" },
+  { id: "seed-3", name: "Feijão Nhemba", image: makePlaceholder("Feijão Nhemba"), resultId: mockMealResults[2].id, timestampLabel: "Ontem, 20:16" },
+  { id: "seed-4", name: "Peixe com Xima", image: makePlaceholder("Peixe + Xima", "#bbf7d0"), resultId: mockMealResults[3].id, timestampLabel: "Ontem, 13:40" },
+  { id: "seed-5", name: "Frango Legumes", image: makePlaceholder("Frango + Legumes"), resultId: mockMealResults[5].id, timestampLabel: "Ontem, 08:24" },
+];
 
 function calcGoal(weight: number, height: number, age: number, activity: string, weeklyGoal: string) {
   const bmr = 10 * weight + 6.25 * height - 5 * age - 120;
