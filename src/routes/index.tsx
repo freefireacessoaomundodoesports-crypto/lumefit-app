@@ -39,6 +39,7 @@ import {
   type MockMealResult,
 } from "@/lib/lumefit-data";
 import shareLogo from "@/assets/share-logo.png";
+import shareFitnessStyle from "@/assets/share-fitness-style.jfif";
 
 export const Route = createFileRoute("/")({
   component: LumeFitApp,
@@ -683,6 +684,189 @@ function LumeFitApp() {
       canvas.height = 1920;
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("canvas_context");
+
+      const drawRoundedRect = (x: number, y: number, width: number, height: number, radius: number) => {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+      };
+
+      const drawProgressBar = (x: number, y: number, width: number, height: number, progress: number, color: string) => {
+        drawRoundedRect(x, y, width, height, height / 2);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.62)";
+        ctx.fill();
+
+        const fillWidth = Math.max(0, Math.min(width, (progress / 100) * width));
+        drawRoundedRect(x, y, fillWidth, height, height / 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+      };
+
+      const drawDumbbell = (centerX: number, centerY: number, angleRad: number) => {
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(angleRad);
+
+        const barGradient = ctx.createLinearGradient(-140, 0, 140, 0);
+        barGradient.addColorStop(0, "#c8c8c8");
+        barGradient.addColorStop(0.5, "#f3f3f3");
+        barGradient.addColorStop(1, "#a9a9a9");
+        ctx.fillStyle = barGradient;
+        drawRoundedRect(-140, -10, 280, 20, 10);
+        ctx.fill();
+
+        [
+          { x: -85, r: 30 },
+          { x: -52, r: 23 },
+          { x: 52, r: 23 },
+          { x: 85, r: 30 },
+        ].forEach((plate) => {
+          const plateGradient = ctx.createRadialGradient(plate.x - 10, -5, 6, plate.x, 0, plate.r);
+          plateGradient.addColorStop(0, "#4f4f4f");
+          plateGradient.addColorStop(1, "#1f1f1f");
+          ctx.fillStyle = plateGradient;
+          ctx.beginPath();
+          ctx.arc(plate.x, 0, plate.r, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        ctx.restore();
+      };
+
+      if (!isWeightMode) {
+        const logoImg = new Image();
+        logoImg.src = shareLogo;
+        const styleRefImg = new Image();
+        styleRefImg.src = shareFitnessStyle;
+
+        await Promise.all([
+          new Promise<void>((resolve, reject) => {
+            logoImg.onload = () => resolve();
+            logoImg.onerror = () => reject(new Error("logo_load_error"));
+          }),
+          new Promise<void>((resolve, reject) => {
+            styleRefImg.onload = () => resolve();
+            styleRefImg.onerror = () => reject(new Error("style_ref_load_error"));
+          }),
+        ]);
+
+        ctx.drawImage(styleRefImg, 0, 0, canvas.width, canvas.height);
+
+        const overlay = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        overlay.addColorStop(0, "rgba(38, 140, 74, 0.48)");
+        overlay.addColorStop(1, "rgba(11, 64, 33, 0.5)");
+        ctx.fillStyle = overlay;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        drawDumbbell(180, 340, -0.55);
+        drawDumbbell(890, 1540, 0.52);
+
+        const cardX = 90;
+        const cardY = 250;
+        const cardWidth = 900;
+        const cardHeight = 1420;
+        drawRoundedRect(cardX, cardY, cardWidth, cardHeight, 44);
+        ctx.fillStyle = "rgba(249, 247, 240, 0.95)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        const logoX = 180;
+        const logoY = 338;
+        const logoRadius = 54;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(logoX, logoY, logoRadius, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(logoImg, logoX - logoRadius, logoY - logoRadius, logoRadius * 2, logoRadius * 2);
+        ctx.restore();
+        ctx.strokeStyle = "#f2d38d";
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(logoX, logoY, logoRadius + 2, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#2d7c49";
+        ctx.font = "700 54px Poppins, sans-serif";
+        ctx.fillText("LUMEfit", 270, 332);
+        ctx.fillStyle = "#4f6d57";
+        ctx.font = "500 32px Poppins, sans-serif";
+        ctx.fillText("Consistência que transforma", 270, 380);
+
+        ctx.fillStyle = "#163b27";
+        ctx.font = "500 36px Poppins, sans-serif";
+        ctx.fillText(`Guerreira ${profile.name || "Campeã"}, segue firme no teu foco!`, 150, 490);
+
+        ctx.fillStyle = "#1b5537";
+        ctx.font = "800 78px Poppins, sans-serif";
+        ctx.fillText("PROGRESSO", 150, 620);
+        ctx.font = "800 64px Poppins, sans-serif";
+        ctx.fillText("DIÁRIO", 150, 690);
+
+        const caloriesProgress = Math.min((consumedCalories / Math.max(profile.calorieGoal, 1)) * 100, 100);
+
+        ctx.fillStyle = "#315e46";
+        ctx.font = "600 34px Poppins, sans-serif";
+        ctx.fillText("Calorias", 150, 780);
+        ctx.font = "500 30px Poppins, sans-serif";
+        ctx.fillText(`${consumedCalories} / ${profile.calorieGoal} kcal`, 150, 826);
+        drawProgressBar(150, 848, 780, 34, caloriesProgress, "#3E9C5E");
+
+        const macroRows = [
+          {
+            label: "Proteína",
+            consumed: Math.round(macros.protein),
+            goal: profile.macroGoals.protein,
+            progress: macroProgress.protein,
+            color: "#F97316",
+          },
+          {
+            label: "Carboidratos",
+            consumed: Math.round(macros.carbs),
+            goal: profile.macroGoals.carbs,
+            progress: macroProgress.carbs,
+            color: "#FACC15",
+          },
+          {
+            label: "Gordura",
+            consumed: Math.round(macros.fat),
+            goal: profile.macroGoals.fat,
+            progress: macroProgress.fat,
+            color: "#A855F7",
+          },
+        ];
+
+        macroRows.forEach((macro, index) => {
+          const rowY = 980 + index * 170;
+          ctx.fillStyle = "#315e46";
+          ctx.font = "600 32px Poppins, sans-serif";
+          ctx.fillText(macro.label, 150, rowY);
+          ctx.font = "500 28px Poppins, sans-serif";
+          ctx.fillText(`${macro.consumed}g / ${macro.goal}g`, 150, rowY + 42);
+          drawProgressBar(150, rowY + 62, 780, 30, macro.progress, macro.color);
+        });
+
+        ctx.fillStyle = "#2f6e4a";
+        ctx.font = "500 30px Poppins, sans-serif";
+        ctx.fillText("Cada treino e cada refeição aproxima-te do teu sonho. ✨", 150, 1545);
+
+        setShareImageUrl(canvas.toDataURL("image/png"));
+        setToastMessage("Imagem gerada com sucesso ✨");
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 1800);
+        return;
+      }
 
       const bg = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
       bg.addColorStop(0, "#f0faf4");
