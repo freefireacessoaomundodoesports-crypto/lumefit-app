@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Bar,
@@ -11,7 +11,19 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Bell, CircleUserRound, Flame, Home, Search, UtensilsCrossed } from "lucide-react";
+import {
+  Bell,
+  Camera,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  CircleUserRound,
+  Flame,
+  Home,
+  ImagePlus,
+  Sparkles,
+  UtensilsCrossed,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,13 +33,14 @@ import { Switch } from "@/components/ui/switch";
 import {
   activityLevels,
   cities,
-  foodDatabase,
   mealLabels,
+  mockMealResults,
   quotes,
   tips,
   weeklyGoals,
   weeklyPlan,
   type MealType,
+  type MockMealResult,
 } from "@/lib/lumefit-data";
 
 export const Route = createFileRoute("/")({
@@ -35,6 +48,7 @@ export const Route = createFileRoute("/")({
 });
 
 type ViewKey = "splash" | "setup" | "home" | "refeicoes" | "progresso" | "plano" | "perfil";
+type MealFlowStage = "camera" | "preview" | "analyzing" | "result";
 
 type Profile = {
   name: string;
@@ -55,9 +69,103 @@ type MealEntry = {
   calories: number;
   quantity: number;
   timestamp: string;
+  photo?: string;
+};
+
+type RecentMealAnalysis = {
+  id: string;
+  name: string;
+  image: string;
+  resultId: string;
+  timestampLabel: string;
 };
 
 const STORAGE_KEY = "lumefit_state_v1";
+
+const ANALYSIS_MESSAGES = [
+  "🔍 A identificar os alimentos...",
+  "🌿 A reconhecer ingredientes locais...",
+  "⚖️ A estimar as porções...",
+  "🔥 A calcular as calorias...",
+  "💪 A analisar macronutrientes...",
+  "✨ A preparar o relatório...",
+];
+
+const confettiOffsets = [
+  "3%",
+  "8%",
+  "12%",
+  "18%",
+  "24%",
+  "31%",
+  "38%",
+  "44%",
+  "49%",
+  "56%",
+  "61%",
+  "67%",
+  "73%",
+  "79%",
+  "84%",
+  "89%",
+  "94%",
+];
+
+function makePlaceholder(label: string, tone = "#dff7e7") {
+  const encoded = encodeURIComponent(`
+    <svg xmlns='http://www.w3.org/2000/svg' width='600' height='420'>
+      <defs>
+        <linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>
+          <stop offset='0%' stop-color='${tone}' stop-opacity='0.95' />
+          <stop offset='100%' stop-color='#2ecc71' stop-opacity='0.68' />
+        </linearGradient>
+      </defs>
+      <rect width='600' height='420' rx='38' fill='url(#g)' />
+      <circle cx='120' cy='96' r='88' fill='white' fill-opacity='0.12' />
+      <circle cx='520' cy='320' r='108' fill='white' fill-opacity='0.12' />
+      <text x='50%' y='52%' dominant-baseline='middle' text-anchor='middle' fill='#1a7a45' font-size='42' font-family='Poppins, sans-serif' font-weight='700'>${label}</text>
+    </svg>
+  `);
+  return `data:image/svg+xml;charset=utf-8,${encoded}`;
+}
+
+const initialRecentAnalyses: RecentMealAnalysis[] = [
+  {
+    id: "seed-1",
+    name: "Xima com Matapa",
+    image: makePlaceholder("Xima + Matapa"),
+    resultId: mockMealResults[0].id,
+    timestampLabel: "Hoje, 11:48",
+  },
+  {
+    id: "seed-2",
+    name: "Arroz com Frango",
+    image: makePlaceholder("Arroz + Frango", "#dcfce7"),
+    resultId: mockMealResults[1].id,
+    timestampLabel: "Hoje, 09:10",
+  },
+  {
+    id: "seed-3",
+    name: "Feijão Nhemba",
+    image: makePlaceholder("Feijão Nhemba"),
+    resultId: mockMealResults[2].id,
+    timestampLabel: "Ontem, 20:16",
+  },
+  {
+    id: "seed-4",
+    name: "Peixe com Xima",
+    image: makePlaceholder("Peixe + Xima", "#bbf7d0"),
+    resultId: mockMealResults[3].id,
+    timestampLabel: "Ontem, 13:40",
+  },
+  {
+    id: "seed-5",
+    name: "Frango Legumes",
+    image: makePlaceholder("Frango + Legumes"),
+    resultId: mockMealResults[5].id,
+    timestampLabel: "Ontem, 08:24",
+  },
+];
 
 function calcGoal(weight: number, height: number, age: number, activity: string, weeklyGoal: string) {
   const bmr = 10 * weight + 6.25 * height - 5 * age - 120;
@@ -75,17 +183,53 @@ function getTodayLabel() {
   });
 }
 
+function animateToward(current: number, target: number, ratio = 0.2) {
+  if (Math.abs(target - current) < 0.5) return target;
+  return current + (target - current) * ratio;
+}
+
+function pickMockResult(seed?: string): MockMealResult {
+  const source = (seed || "").toLowerCase();
+  const direct = mockMealResults.find(
+    (item) =>
+      source.includes(item.mealName.toLowerCase().split(" ")[0]) ||
+      source.includes("xima") ||
+      source.includes("matapa") ||
+      source.includes("frango") ||
+      source.includes("feij") ||
+      source.includes("peixe"),
+  );
+
+  if (direct) return direct;
+  return mockMealResults[Math.floor(Math.random() * mockMealResults.length)];
+}
+
 function LumeFitApp() {
   const [view, setView] = useState<ViewKey>("splash");
   const [setupStep, setSetupStep] = useState(1);
-  const [selectedMeal, setSelectedMeal] = useState<MealType>("pequeno-almoco");
-  const [search, setSearch] = useState("");
-  const [pickedFoodId, setPickedFoodId] = useState<string | null>(null);
-  const [quantity, setQuantity] = useState(1);
-  const [recentFoods, setRecentFoods] = useState<string[]>([]);
+  const [selectedMeal, setSelectedMeal] = useState<MealType>("almoco");
   const [expandedMeals, setExpandedMeals] = useState<MealType[]>([]);
   const [notifications, setNotifications] = useState(true);
   const [metric, setMetric] = useState(true);
+
+  const [mealStage, setMealStage] = useState<MealFlowStage>("camera");
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [analysisMessageIndex, setAnalysisMessageIndex] = useState(0);
+  const [activeResult, setActiveResult] = useState<MockMealResult | null>(null);
+  const [portionMultiplier, setPortionMultiplier] = useState(1);
+  const [nutritionOpen, setNutritionOpen] = useState(false);
+  const [expandedIngredient, setExpandedIngredient] = useState<string | null>(null);
+  const [recentAnalyses, setRecentAnalyses] = useState<RecentMealAnalysis[]>(initialRecentAnalyses);
+  const [isSavingMeal, setIsSavingMeal] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+
+  const [animatedKcal, setAnimatedKcal] = useState(0);
+  const [animatedProtein, setAnimatedProtein] = useState(0);
+  const [animatedCarbs, setAnimatedCarbs] = useState(0);
+  const [animatedFat, setAnimatedFat] = useState(0);
 
   const [profile, setProfile] = useState<Profile>({
     name: "",
@@ -109,22 +253,29 @@ function LumeFitApp() {
     { week: "Sem 6", weight: 76.8 },
   ]);
 
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
+
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
+
     try {
       const parsed = JSON.parse(raw) as {
-        profile: Profile;
-        entries: MealEntry[];
-        recentFoods: string[];
-        notifications: boolean;
-        metric: boolean;
+        profile?: Profile;
+        entries?: MealEntry[];
+        notifications?: boolean;
+        metric?: boolean;
+        recentAnalyses?: RecentMealAnalysis[];
       };
-      setProfile(parsed.profile);
-      setEntries(parsed.entries);
-      setRecentFoods(parsed.recentFoods);
-      setNotifications(parsed.notifications);
-      setMetric(parsed.metric);
+
+      if (parsed.profile) setProfile(parsed.profile);
+      if (parsed.entries) setEntries(parsed.entries);
+      if (typeof parsed.notifications === "boolean") setNotifications(parsed.notifications);
+      if (typeof parsed.metric === "boolean") setMetric(parsed.metric);
+      if (parsed.recentAnalyses && parsed.recentAnalyses.length > 0) {
+        setRecentAnalyses(parsed.recentAnalyses.slice(0, 5));
+      }
       setView("home");
     } catch {
       localStorage.removeItem(STORAGE_KEY);
@@ -134,19 +285,75 @@ function LumeFitApp() {
   useEffect(() => {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ profile, entries, recentFoods, notifications, metric }),
+      JSON.stringify({
+        profile,
+        entries,
+        notifications,
+        metric,
+        recentAnalyses,
+      }),
     );
-  }, [profile, entries, recentFoods, notifications, metric]);
+  }, [profile, entries, notifications, metric, recentAnalyses]);
+
+  useEffect(() => {
+    if (mealStage !== "analyzing") return;
+
+    setAnalysisProgress(0);
+    setAnalysisMessageIndex(0);
+
+    const progressTick = setInterval(() => {
+      setAnalysisProgress((prev) => Math.min(100, prev + 2.35));
+    }, 80);
+
+    const msgTick = setInterval(() => {
+      setAnalysisMessageIndex((prev) => (prev + 1) % ANALYSIS_MESSAGES.length);
+    }, 1200);
+
+    const finish = setTimeout(() => {
+      setAnalysisProgress(100);
+      const selected = pickMockResult(activeResult?.mealName);
+      setActiveResult(selected);
+      setPortionMultiplier(1);
+      setMealStage("result");
+    }, 3500);
+
+    return () => {
+      clearInterval(progressTick);
+      clearInterval(msgTick);
+      clearTimeout(finish);
+    };
+  }, [mealStage, activeResult?.mealName]);
+
+  useEffect(() => {
+    if (!activeResult || mealStage !== "result") return;
+
+    const targetKcal = Math.round(activeResult.estimatedKcal * portionMultiplier);
+    const targetProtein = activeResult.protein * portionMultiplier;
+    const targetCarbs = activeResult.carbs * portionMultiplier;
+    const targetFat = activeResult.fat * portionMultiplier;
+
+    const timer = setInterval(() => {
+      setAnimatedKcal((prev) => animateToward(prev, targetKcal));
+      setAnimatedProtein((prev) => animateToward(prev, targetProtein));
+      setAnimatedCarbs((prev) => animateToward(prev, targetCarbs));
+      setAnimatedFat((prev) => animateToward(prev, targetFat));
+    }, 32);
+
+    const stopper = setTimeout(() => {
+      setAnimatedKcal(targetKcal);
+      setAnimatedProtein(targetProtein);
+      setAnimatedCarbs(targetCarbs);
+      setAnimatedFat(targetFat);
+      clearInterval(timer);
+    }, 1000);
+
+    return () => {
+      clearInterval(timer);
+      clearTimeout(stopper);
+    };
+  }, [activeResult, portionMultiplier, mealStage]);
 
   const todayQuote = quotes[new Date().getDate() % quotes.length];
-
-  const filteredFoods = useMemo(
-    () =>
-      foodDatabase.filter((food) =>
-        `${food.name} ${food.category}`.toLowerCase().includes(search.toLowerCase()),
-      ),
-    [search],
-  );
 
   const consumedCalories = entries.reduce((sum, item) => sum + item.calories, 0);
   const remainingCalories = Math.max(profile.calorieGoal - consumedCalories, 0);
@@ -172,40 +379,86 @@ function LumeFitApp() {
     { "pequeno-almoco": [], almoco: [], jantar: [], lanches: [] },
   );
 
-  const weeklyBars = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((d, index) => {
-    const base = profile.calorieGoal - 160 + index * 40;
-    return { day: d, calories: base };
+  const weeklyBars = useMemo(
+    () =>
+      ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((d, index) => {
+        const base = profile.calorieGoal - 160 + index * 40;
+        return { day: d, calories: base };
+      }),
+    [profile.calorieGoal],
+  );
+
+  const currentTimestamp = new Date().toLocaleTimeString("pt-MZ", {
+    hour: "2-digit",
+    minute: "2-digit",
   });
-
-  const selectedFood = pickedFoodId ? foodDatabase.find((food) => food.id === pickedFoodId) : null;
-  const previewCalories = selectedFood ? Math.round(selectedFood.calories * quantity) : 0;
-
-  const addFoodToMeal = () => {
-    if (!selectedFood) return;
-    const newEntry: MealEntry = {
-      id: crypto.randomUUID(),
-      meal: selectedMeal,
-      foodName: selectedFood.name,
-      calories: previewCalories,
-      quantity,
-      timestamp: new Date().toISOString(),
-    };
-    setEntries((prev) => [newEntry, ...prev]);
-    setRecentFoods((prev) => Array.from(new Set([selectedFood.id, ...prev])).slice(0, 6));
-    setPickedFoodId(null);
-    setQuantity(1);
-  };
-
-  const saveSetup = () => {
-    setProfile((prev) => ({
-      ...prev,
-      calorieGoal: calcGoal(prev.weight, prev.height, prev.age, prev.activityLevel, prev.weeklyGoal),
-    }));
-    setView("home");
-  };
 
   const shellClass =
     "mx-auto min-h-screen w-full max-w-md px-4 pb-28 pt-5 text-foreground animate-fade-in sm:max-w-2xl";
+
+  const handleImagePick = (file: File | null) => {
+    if (!file) return;
+    const fileUrl = URL.createObjectURL(file);
+    setPreviewImage(fileUrl);
+    setActiveResult(pickMockResult(file.name));
+    setMealStage("preview");
+    setNutritionOpen(false);
+    setExpandedIngredient(null);
+  };
+
+  const confirmAddToDiary = () => {
+    if (!activeResult) return;
+    const kcal = Math.round(activeResult.estimatedKcal * portionMultiplier);
+    const nextEntry: MealEntry = {
+      id: crypto.randomUUID(),
+      meal: selectedMeal,
+      foodName: activeResult.mealName,
+      calories: kcal,
+      quantity: portionMultiplier,
+      timestamp: new Date().toISOString(),
+      photo: previewImage || undefined,
+    };
+
+    setIsSavingMeal(true);
+    setEntries((prev) => [nextEntry, ...prev]);
+    setRecentAnalyses((prev) => {
+      const stamp = `Hoje, ${currentTimestamp}`;
+      const first: RecentMealAnalysis = {
+        id: crypto.randomUUID(),
+        name: activeResult.mealName,
+        image: previewImage || makePlaceholder(activeResult.mealName),
+        resultId: activeResult.id,
+        timestampLabel: stamp,
+      };
+      return [first, ...prev].slice(0, 5);
+    });
+
+    setToastMessage(`✅ ${kcal} kcal adicionadas ao ${mealLabels[selectedMeal].replace(/^[^ ]+ /, "").toLowerCase()}!`);
+    setShowToast(true);
+    setShowConfetti(true);
+
+    setTimeout(() => setShowConfetti(false), 1500);
+    setTimeout(() => {
+      setIsSavingMeal(false);
+      setMealStage("camera");
+      setView("home");
+    }, 1600);
+
+    setTimeout(() => setShowToast(false), 2600);
+  };
+
+  const resetMealFlow = () => {
+    setMealStage("camera");
+    setPreviewImage(null);
+    setActiveResult(null);
+    setPortionMultiplier(1);
+    setNutritionOpen(false);
+    setExpandedIngredient(null);
+    setAnalysisProgress(0);
+    setAnalysisMessageIndex(0);
+  };
+
+  const currentMealTitle = mealLabels[selectedMeal];
 
   return (
     <main className="relative min-h-screen overflow-hidden">
@@ -329,7 +582,8 @@ function LumeFitApp() {
                       profile.age,
                       profile.activityLevel,
                       profile.weeklyGoal,
-                    )} kcal
+                    )}{" "}
+                    kcal
                   </p>
                 </div>
               </div>
@@ -349,7 +603,19 @@ function LumeFitApp() {
                   Continuar
                 </Button>
               ) : (
-                <Button onClick={saveSetup} className="flex-1 bg-brand-accent-1 hover:bg-brand-accent-2">
+                <Button onClick={() => {
+                  setProfile((prev) => ({
+                    ...prev,
+                    calorieGoal: calcGoal(
+                      prev.weight,
+                      prev.height,
+                      prev.age,
+                      prev.activityLevel,
+                      prev.weeklyGoal,
+                    ),
+                  }));
+                  setView("home");
+                }} className="flex-1 bg-brand-accent-1 hover:bg-brand-accent-2">
                   Guardar
                 </Button>
               )}
@@ -380,7 +646,14 @@ function LumeFitApp() {
                             <stop offset="100%" stopColor="var(--color-brand-accent-2)" />
                           </linearGradient>
                         </defs>
-                        <circle cx="60" cy="60" r="52" fill="none" stroke="var(--color-glass-border)" strokeWidth="8" />
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="52"
+                          fill="none"
+                          stroke="var(--color-glass-border)"
+                          strokeWidth="8"
+                        />
                         <circle
                           cx="60"
                           cy="60"
@@ -419,8 +692,10 @@ function LumeFitApp() {
 
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     {(Object.keys(mealLabels) as MealType[]).map((meal) => {
-                      const total = mealsByType[meal].reduce((sum, item) => sum + item.calories, 0);
+                      const mealEntries = mealsByType[meal];
+                      const total = mealEntries.reduce((sum, item) => sum + item.calories, 0);
                       const isOpen = expandedMeals.includes(meal);
+
                       return (
                         <article
                           key={meal}
@@ -430,7 +705,9 @@ function LumeFitApp() {
                             type="button"
                             onClick={() =>
                               setExpandedMeals((prev) =>
-                                prev.includes(meal) ? prev.filter((item) => item !== meal) : [...prev, meal],
+                                prev.includes(meal)
+                                  ? prev.filter((item) => item !== meal)
+                                  : [...prev, meal],
                               )
                             }
                             className="w-full text-left"
@@ -444,14 +721,25 @@ function LumeFitApp() {
                             onClick={() => {
                               setSelectedMeal(meal);
                               setView("refeicoes");
+                              setMealStage("camera");
                             }}
                           >
                             + Adicionar
                           </Button>
                           {isOpen && (
                             <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-                              {mealsByType[meal].slice(0, 3).map((entry) => (
-                                <li key={entry.id}>{entry.foodName}</li>
+                              {mealEntries.slice(0, 3).map((entry) => (
+                                <li key={entry.id} className="flex items-center gap-2">
+                                  {entry.photo ? (
+                                    <img
+                                      src={entry.photo}
+                                      alt={entry.foodName}
+                                      className="h-6 w-6 rounded-md object-cover"
+                                      loading="lazy"
+                                    />
+                                  ) : null}
+                                  <span className="truncate">{entry.foodName}</span>
+                                </li>
                               ))}
                             </ul>
                           )}
@@ -464,52 +752,319 @@ function LumeFitApp() {
 
               {view === "refeicoes" && (
                 <>
-                  <div className="glass-card mt-4 rounded-xl p-4">
-                    <p className="mb-2 text-sm">Adicionar em: {mealLabels[selectedMeal]}</p>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Pesquisar alimento... ex: Xima, Matapa"
-                        className="pl-9"
-                      />
-                    </div>
-                    <div className="mt-4 max-h-64 space-y-2 overflow-auto pr-1">
-                      {filteredFoods.map((food) => (
-                        <button
-                          type="button"
-                          key={food.id}
-                          onClick={() => setPickedFoodId(food.id)}
-                          className="glass-card w-full rounded-lg p-3 text-left"
-                        >
-                          <p className="text-sm font-medium">{food.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {food.portion} • {food.calories} kcal
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  {mealStage === "camera" && (
+                    <div className="mt-4 space-y-4">
+                      <article className="glass-card rounded-[20px] p-5 shadow-[0_0_0_1px_var(--color-brand-accent-1)_inset,0_8px_28px_oklch(0.64_0.12_152_/_20%)]">
+                        <p className="text-xs text-muted-foreground">Adicionar em: {currentMealTitle}</p>
+                        <h3 className="mt-1 text-2xl font-bold text-primary">Analisar Refeição</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Tira uma foto do teu prato e a IA faz o resto ✨
+                        </p>
 
-                  {recentFoods.length > 0 && (
-                    <div className="glass-card mt-4 rounded-xl p-4">
-                      <h3 className="text-sm font-semibold">Recentes</h3>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {recentFoods.map((id) => {
-                          const food = foodDatabase.find((item) => item.id === id);
-                          if (!food) return null;
-                          return (
+                        <div className="mt-4 grid grid-cols-2 gap-3">
+                          <Button
+                            onClick={() => cameraInputRef.current?.click()}
+                            className="camera-pulse h-14 rounded-[18px] text-sm"
+                          >
+                            <Camera className="h-4 w-4" />
+                            Tirar Foto
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => galleryInputRef.current?.click()}
+                            className="h-14 rounded-[18px] border-brand-accent-1/40 bg-glass text-primary"
+                          >
+                            <ImagePlus className="h-4 w-4" />
+                            Carregar da Galeria
+                          </Button>
+                        </div>
+                      </article>
+
+                      <article className="glass-card rounded-[20px] p-4">
+                        <div className="mb-3 flex items-center justify-between">
+                          <h4 className="text-sm font-semibold">Análises Recentes</h4>
+                          <span className="text-xs text-muted-foreground">Últimas 5</span>
+                        </div>
+                        <div className="no-scrollbar flex gap-3 overflow-x-auto pb-1">
+                          {recentAnalyses.map((item) => (
                             <button
                               type="button"
-                              key={id}
-                              onClick={() => setPickedFoodId(id)}
-                              className="rounded-full border border-glass-border bg-glass px-3 py-1 text-xs"
+                              key={item.id}
+                              onClick={() => {
+                                const matched = mockMealResults.find((m) => m.id === item.resultId) || mockMealResults[0];
+                                setPreviewImage(item.image);
+                                setActiveResult(matched);
+                                setMealStage("result");
+                                setPortionMultiplier(1);
+                              }}
+                              className="w-[82px] shrink-0 text-left"
                             >
-                              {food.name}
+                              <img
+                                src={item.image}
+                                alt={item.name}
+                                className="h-[72px] w-[72px] rounded-full border border-brand-accent-1/30 object-cover shadow-[0_6px_20px_oklch(0.64_0.12_152_/_20%)]"
+                                loading="lazy"
+                              />
+                              <p className="mt-1 truncate text-[11px] font-medium">{item.name}</p>
                             </button>
+                          ))}
+                        </div>
+                      </article>
+
+                      <input
+                        ref={cameraInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={(e) => handleImagePick(e.target.files?.[0] || null)}
+                      />
+                      <input
+                        ref={galleryInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleImagePick(e.target.files?.[0] || null)}
+                      />
+                    </div>
+                  )}
+
+                  {mealStage === "preview" && previewImage && (
+                    <div className="mt-4 space-y-4">
+                      <article className="glass-card rounded-[20px] p-4 shadow-[0_0_0_1px_var(--color-brand-accent-1)_inset]">
+                        <img
+                          src={previewImage}
+                          alt="Pré-visualização da refeição"
+                          className="h-64 w-full rounded-2xl border border-brand-accent-1/40 object-cover"
+                        />
+                      </article>
+
+                      <div className="space-y-3">
+                        <Button className="h-12 w-full rounded-[18px]" onClick={() => setMealStage("analyzing")}>
+                          <Sparkles className="h-4 w-4" />
+                          Analisar este prato
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="h-11 w-full rounded-[18px]"
+                          onClick={() => {
+                            setPreviewImage(null);
+                            setMealStage("camera");
+                          }}
+                        >
+                          Escolher outra foto
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {mealStage === "result" && activeResult && (
+                    <div className="mt-4 space-y-4 pb-36">
+                      <article className="glass-card animate-enter rounded-[20px] p-5">
+                        {previewImage ? (
+                          <img
+                            src={previewImage}
+                            alt={activeResult.mealName}
+                            className="h-48 w-full rounded-2xl border border-brand-accent-1/45 object-cover shadow-[0_0_0_1px_var(--color-brand-accent-1)_inset,0_10px_24px_oklch(0.64_0.12_152_/_20%)]"
+                          />
+                        ) : null}
+                        <h3 className="mt-3 text-xl font-bold">{activeResult.mealName}</h3>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <span className="rounded-full border border-brand-accent-1/40 bg-brand-accent-1/20 px-3 py-1 text-xs font-medium text-primary">
+                            {activeResult.confidence}% de precisão ✓
+                          </span>
+                          <span className="rounded-full border border-glass-border bg-glass px-3 py-1 text-xs">
+                            {activeResult.cuisineTag}
+                          </span>
+                          <span className="text-xs text-muted-foreground">Hoje, {currentTimestamp}</span>
+                        </div>
+                      </article>
+
+                      <article className="glass-card animate-enter rounded-[20px] p-5 text-center">
+                        <p className="text-xs text-muted-foreground">Estimativa total</p>
+                        <p className="mt-1 text-5xl font-bold text-primary">{Math.round(animatedKcal)}</p>
+                        <p className="text-sm font-medium">kcal estimadas</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Baseado nas porções visíveis no prato
+                        </p>
+                        <div className="mt-4">
+                          <div className="h-3 overflow-hidden rounded-full bg-brand-accent-3/40">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-brand-accent-1 to-brand-accent-2 transition-all duration-700"
+                              style={{ width: `${Math.min(100, activeResult.dailyGoalPercent * portionMultiplier)}%` }}
+                            />
+                          </div>
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Este prato = {Math.round(activeResult.dailyGoalPercent * portionMultiplier)}% da tua meta diária
+                          </p>
+                        </div>
+                      </article>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          {
+                            key: "prot",
+                            label: "Proteínas",
+                            value: animatedProtein,
+                            target: activeResult.protein * portionMultiplier,
+                            ring: "var(--color-brand-danger)",
+                            bg: "bg-brand-danger/10 border-brand-danger/30",
+                          },
+                          {
+                            key: "carb",
+                            label: "Carboidratos",
+                            value: animatedCarbs,
+                            target: activeResult.carbs * portionMultiplier,
+                            ring: "var(--color-brand-warning)",
+                            bg: "bg-brand-warning/10 border-brand-warning/30",
+                          },
+                          {
+                            key: "fat",
+                            label: "Gorduras",
+                            value: animatedFat,
+                            target: activeResult.fat * portionMultiplier,
+                            ring: "var(--color-brand-success)",
+                            bg: "bg-brand-success/10 border-brand-success/30",
+                          },
+                        ].map((macro, index) => {
+                          const pct = Math.min(100, (macro.value / Math.max(macro.target, 1)) * 100);
+                          return (
+                            <article
+                              key={macro.key}
+                              className={`glass-card rounded-[20px] border p-3 animate-enter ${macro.bg}`}
+                              style={{ animationDelay: `${index * 0.1}s` }}
+                            >
+                              <div className="mx-auto mb-2 h-12 w-12">
+                                <svg viewBox="0 0 48 48" className="h-full w-full -rotate-90">
+                                  <circle cx="24" cy="24" r="18" stroke="var(--color-glass-border)" strokeWidth="5" fill="none" />
+                                  <circle
+                                    cx="24"
+                                    cy="24"
+                                    r="18"
+                                    stroke={macro.ring}
+                                    strokeWidth="5"
+                                    fill="none"
+                                    strokeLinecap="round"
+                                    strokeDasharray={`${(pct / 100) * 113} 113`}
+                                    className="transition-all duration-700"
+                                  />
+                                </svg>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground">{macro.label}</p>
+                              <p className="text-base font-bold">{Math.round(macro.value)}g</p>
+                            </article>
                           );
                         })}
+                      </div>
+
+                      <article className="glass-card rounded-[20px] p-4">
+                        <h4 className="text-sm font-semibold">Ingredientes Identificados</h4>
+                        <div className="mt-3 space-y-2">
+                          {activeResult.ingredients.map((item, index) => {
+                            const expanded = expandedIngredient === item.name;
+                            return (
+                              <button
+                                type="button"
+                                key={item.name}
+                                onClick={() => setExpandedIngredient((prev) => (prev === item.name ? null : item.name))}
+                                className="glass-chip animate-enter w-full rounded-xl border border-glass-border bg-glass p-3 text-left"
+                                style={{ animationDelay: `${index * 0.08}s` }}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-start gap-2">
+                                    <Check className="mt-0.5 h-4 w-4 text-brand-accent-1" />
+                                    <div>
+                                      <p className="text-sm font-medium">{item.name}</p>
+                                      <p className="text-xs text-muted-foreground">{Math.round(item.calories * portionMultiplier)} kcal</p>
+                                    </div>
+                                  </div>
+                                  <span className="text-xs text-muted-foreground">{expanded ? "−" : "+"}</span>
+                                </div>
+                                {expanded ? <p className="mt-2 text-xs text-muted-foreground">{item.note}</p> : null}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </article>
+
+                      <article className="glass-card rounded-[20px] p-4">
+                        <button
+                          type="button"
+                          className="flex w-full items-center justify-between"
+                          onClick={() => setNutritionOpen((prev) => !prev)}
+                        >
+                          <h4 className="text-sm font-semibold">Detalhes Nutricionais</h4>
+                          {nutritionOpen ? (
+                            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </button>
+
+                        {nutritionOpen ? (
+                          <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                            {[
+                              `🧂 Sódio: ${Math.round(activeResult.sodiumMg * portionMultiplier)}mg`,
+                              `🫀 Fibra: ${(activeResult.fiberG * portionMultiplier).toFixed(1)}g`,
+                              `🍬 Açúcares: ${(activeResult.sugarsG * portionMultiplier).toFixed(1)}g`,
+                              `💊 Vitamina A: ${Math.round(activeResult.vitaminAPct * portionMultiplier)}% VD`,
+                              `💊 Vitamina C: ${Math.round(activeResult.vitaminCPct * portionMultiplier)}% VD`,
+                              `⚡ Ferro: ${Math.round(activeResult.ironPct * portionMultiplier)}% VD`,
+                              `🦴 Cálcio: ${Math.round(activeResult.calciumPct * portionMultiplier)}% VD`,
+                            ].map((value) => (
+                              <div key={value} className="rounded-lg border border-glass-border bg-glass px-3 py-2">
+                                {value}
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </article>
+
+                      <article className="glass-card rounded-[20px] border-l-4 border-l-brand-accent-1 p-4">
+                        <h4 className="text-sm font-semibold">💡 Insights para ti</h4>
+                        <div className="mt-3 space-y-2">
+                          {activeResult.insights.map((tipItem) => (
+                            <div key={tipItem} className="rounded-lg border border-glass-border bg-glass px-3 py-2 text-sm">
+                              {tipItem}
+                            </div>
+                          ))}
+                        </div>
+                      </article>
+
+                      <article className="glass-card rounded-[20px] p-4">
+                        <div className="mb-3 flex items-center justify-between">
+                          <h4 className="text-sm font-semibold">Ajustar Porção</h4>
+                          <span className="rounded-full border border-brand-accent-1/40 bg-brand-accent-1/15 px-2.5 py-1 text-xs font-medium">
+                            {portionMultiplier}x — Porção normal
+                          </span>
+                        </div>
+
+                        <Slider
+                          min={0.5}
+                          max={2}
+                          step={0.5}
+                          value={[portionMultiplier]}
+                          onValueChange={([value]) => setPortionMultiplier(value)}
+                        />
+
+                        <div className="mt-3 flex justify-between text-[11px] text-muted-foreground">
+                          <span>0.5x</span>
+                          <span>1x</span>
+                          <span>1.5x</span>
+                          <span>2x</span>
+                        </div>
+                      </article>
+
+                      <div className="frosted-nav fixed bottom-20 left-1/2 z-30 w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-[18px] p-3 sm:max-w-md">
+                        <div className="space-y-2">
+                          <Button className="h-11 w-full" onClick={confirmAddToDiary} disabled={isSavingMeal}>
+                            <Check className="h-4 w-4" />
+                            {isSavingMeal ? "A guardar..." : "Adicionar ao Diário"}
+                          </Button>
+                          <Button variant="outline" className="h-10 w-full" onClick={resetMealFlow}>
+                            Analisar Outro Prato
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -638,7 +1193,7 @@ function LumeFitApp() {
                   onClick={() => {
                     localStorage.removeItem(STORAGE_KEY);
                     setEntries([]);
-                    setRecentFoods([]);
+                    setRecentAnalyses(initialRecentAnalyses);
                     setView("splash");
                   }}
                 >
@@ -679,37 +1234,49 @@ function LumeFitApp() {
         </nav>
       )}
 
-      {selectedFood && (
-        <div className="fixed inset-0 z-30 flex items-end bg-background/40 p-4 sm:items-center sm:justify-center">
-          <div className="glass-card w-full rounded-xl p-4 sm:max-w-sm">
-            <h3 className="text-lg font-semibold">{selectedFood.name}</h3>
-            <p className="text-sm text-muted-foreground">
-              {selectedFood.portion} • {selectedFood.calories} kcal
-            </p>
-            <div className="mt-3 flex gap-2">
-              {[0.5, 1, 1.5, 2].map((factor) => (
-                <Button
-                  key={factor}
-                  variant={quantity === factor ? "default" : "outline"}
-                  onClick={() => setQuantity(factor)}
-                  className="flex-1"
-                >
-                  {factor}x
-                </Button>
-              ))}
+      {mealStage === "analyzing" && previewImage ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/55 p-4 backdrop-blur-xl">
+          <div className="glass-card w-full max-w-sm rounded-[24px] p-5 text-center">
+            <div className="relative mx-auto h-56 overflow-hidden rounded-2xl border border-brand-accent-1/35">
+              <img src={previewImage} alt="Análise em progresso" className="h-full w-full object-cover" />
+              <div className="scan-line" />
+              <div className="radar-ring" />
+              <div className="focus-corners" />
             </div>
-            <p className="mt-3 text-sm">Total previsto: {previewCalories} kcal</p>
-            <div className="mt-4 flex gap-2">
-              <Button variant="outline" onClick={() => setPickedFoodId(null)} className="flex-1">
-                Fechar
-              </Button>
-              <Button onClick={addFoodToMeal} className="flex-1 bg-brand-accent-1 hover:bg-brand-accent-2">
-                Adicionar à refeição
-              </Button>
+
+            <p key={analysisMessageIndex} className="mt-4 text-sm text-primary animate-fade-in">
+              {ANALYSIS_MESSAGES[analysisMessageIndex]}
+            </p>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-accent-3/40">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-brand-accent-1 to-brand-accent-2 transition-all duration-300"
+                style={{ width: `${analysisProgress}%` }}
+              />
             </div>
           </div>
         </div>
-      )}
+      ) : null}
+
+      {showToast ? (
+        <div className="fixed left-1/2 top-4 z-50 w-[calc(100%-2rem)] -translate-x-1/2 rounded-xl border border-brand-accent-1/35 bg-glass px-4 py-3 text-sm font-medium shadow-[0_8px_24px_oklch(0.64_0.12_152_/_22%)] sm:max-w-sm">
+          {toastMessage}
+        </div>
+      ) : null}
+
+      {showConfetti ? (
+        <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden">
+          {confettiOffsets.map((left, index) => (
+            <span
+              key={left}
+              className="confetti-particle"
+              style={{
+                left,
+                animationDelay: `${index * 0.06}s`,
+              }}
+            />
+          ))}
+        </div>
+      ) : null}
     </main>
   );
 }

@@ -8,6 +8,28 @@ export type FoodItem = {
   category: string;
 };
 
+export type MockMealResult = {
+  id: string;
+  mealName: string;
+  cuisineTag: string;
+  confidence: number;
+  estimatedKcal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  dailyGoalPercent: number;
+  sodiumMg: number;
+  fiberG: number;
+  sugarsG: number;
+  vitaminAPct: number;
+  vitaminCPct: number;
+  ironPct: number;
+  calciumPct: number;
+  imageSeed: string;
+  ingredients: Array<{ name: string; calories: number; note: string }>;
+  insights: string[];
+};
+
 export const cities = ["Maputo", "Beira", "Nampula", "Quelimane", "Tete", "Outro"];
 
 export const weeklyGoals = [
@@ -136,6 +158,184 @@ export const weeklyPlan = [
       "Almoço: Arroz branco + frango cozido + couve (496 kcal)",
       "Jantar: Xima pequena + peixe seco + abóbora (479 kcal)",
       "Lanches: Manga + cajú (292 kcal)",
+    ],
+  },
+];
+
+export const mockMealResults: MockMealResult[] = [
+  {
+    id: "mock-xima-matapa",
+    mealName: "Xima com Matapa e Frango",
+    cuisineTag: "🇲🇿 Cozinha Moçambicana",
+    confidence: 98,
+    estimatedKcal: 487,
+    protein: 28,
+    carbs: 58,
+    fat: 14,
+    dailyGoalPercent: 35,
+    sodiumMg: 420,
+    fiberG: 4.2,
+    sugarsG: 2.1,
+    vitaminAPct: 15,
+    vitaminCPct: 22,
+    ironPct: 18,
+    calciumPct: 8,
+    imageSeed: "xima-matapa",
+    ingredients: [
+      { name: "Xima (farinha de milho)", calories: 280, note: "Principal fonte de energia desta refeição." },
+      { name: "Matapa (folhas de mandioca)", calories: 85, note: "Contribui com fibra e micronutrientes vegetais." },
+      { name: "Amendoim (molho)", calories: 72, note: "Aumenta gordura saudável e proteína vegetal." },
+      { name: "Frango grelhado", calories: 50, note: "Pequena porção de proteína magra." },
+    ],
+    insights: [
+      "✅ Boa fonte de proteína vegetal com o amendoim",
+      "⚠️ Porção de xima um pouco grande — considera reduzir 20%",
+      "💧 Bebe um copo de água após esta refeição",
+    ],
+  },
+  {
+    id: "mock-arroz-frango",
+    mealName: "Arroz com Frango Grelhado",
+    cuisineTag: "🇲🇿 Cozinha Moçambicana",
+    confidence: 96,
+    estimatedKcal: 412,
+    protein: 31,
+    carbs: 46,
+    fat: 10,
+    dailyGoalPercent: 29,
+    sodiumMg: 360,
+    fiberG: 3.8,
+    sugarsG: 1.8,
+    vitaminAPct: 11,
+    vitaminCPct: 19,
+    ironPct: 16,
+    calciumPct: 7,
+    imageSeed: "arroz-frango",
+    ingredients: [
+      { name: "Arroz branco cozido", calories: 220, note: "Base de carboidrato de absorção rápida." },
+      { name: "Frango grelhado", calories: 160, note: "Proteína com boa saciedade." },
+      { name: "Tomate e cebola", calories: 32, note: "Adiciona volume e micronutrientes." },
+    ],
+    insights: [
+      "✅ Perfil equilibrado para recuperação pós-treino",
+      "🌿 Junta mais couve para aumentar fibra",
+      "💧 Mantém hidratação para melhor digestão",
+    ],
+  },
+  {
+    id: "mock-feijao-arroz",
+    mealName: "Feijão Nhemba com Arroz",
+    cuisineTag: "🇲🇿 Cozinha Moçambicana",
+    confidence: 95,
+    estimatedKcal: 390,
+    protein: 18,
+    carbs: 60,
+    fat: 8,
+    dailyGoalPercent: 28,
+    sodiumMg: 310,
+    fiberG: 8.6,
+    sugarsG: 2.5,
+    vitaminAPct: 9,
+    vitaminCPct: 14,
+    ironPct: 21,
+    calciumPct: 10,
+    imageSeed: "feijao-nhemba",
+    ingredients: [
+      { name: "Feijão nhemba cozido", calories: 210, note: "Rico em fibra e proteína vegetal." },
+      { name: "Arroz integral", calories: 155, note: "Carboidrato com melhor saciedade." },
+      { name: "Couve refogada", calories: 25, note: "Aumenta micronutrientes da refeição." },
+    ],
+    insights: [
+      "✅ Excelente refeição de fibra para saciedade",
+      "⚖️ Boa combinação de proteína vegetal e carboidrato",
+      "🍋 Um toque de limão ajuda na absorção de ferro",
+    ],
+  },
+  {
+    id: "mock-peixe-xima",
+    mealName: "Peixe Frito com Xima",
+    cuisineTag: "🇲🇿 Cozinha Moçambicana",
+    confidence: 94,
+    estimatedKcal: 520,
+    protein: 34,
+    carbs: 52,
+    fat: 20,
+    dailyGoalPercent: 37,
+    sodiumMg: 470,
+    fiberG: 3.1,
+    sugarsG: 1.4,
+    vitaminAPct: 8,
+    vitaminCPct: 10,
+    ironPct: 19,
+    calciumPct: 11,
+    imageSeed: "peixe-xima",
+    ingredients: [
+      { name: "Peixe frito", calories: 250, note: "Alto teor de proteína, com gordura de fritura." },
+      { name: "Xima", calories: 250, note: "Fonte principal de energia no prato." },
+      { name: "Molho leve", calories: 20, note: "Contribuição calórica pequena." },
+    ],
+    insights: [
+      "✅ Refeição rica em proteína animal",
+      "⚠️ Considera peixe grelhado para reduzir gordura",
+      "🥗 Adiciona vegetais para equilibrar o prato",
+    ],
+  },
+  {
+    id: "mock-matapa",
+    mealName: "Matapa Simples",
+    cuisineTag: "🇲🇿 Cozinha Moçambicana",
+    confidence: 97,
+    estimatedKcal: 310,
+    protein: 12,
+    carbs: 24,
+    fat: 18,
+    dailyGoalPercent: 22,
+    sodiumMg: 290,
+    fiberG: 5.3,
+    sugarsG: 1.2,
+    vitaminAPct: 26,
+    vitaminCPct: 24,
+    ironPct: 17,
+    calciumPct: 14,
+    imageSeed: "matapa",
+    ingredients: [
+      { name: "Folhas de mandioca", calories: 70, note: "Ricas em micronutrientes vegetais." },
+      { name: "Amendoim", calories: 170, note: "Fornece gordura saudável e energia." },
+      { name: "Leite de coco", calories: 70, note: "Traz cremosidade e densidade energética." },
+    ],
+    insights: [
+      "✅ Refeição rica em gorduras boas do amendoim",
+      "⚖️ Mantém porção moderada pelo teor energético",
+      "💧 Água ajuda a equilibrar a digestão desta refeição",
+    ],
+  },
+  {
+    id: "mock-frango-legumes",
+    mealName: "Frango com Legumes",
+    cuisineTag: "🇲🇿 Cozinha Moçambicana",
+    confidence: 95,
+    estimatedKcal: 350,
+    protein: 33,
+    carbs: 22,
+    fat: 12,
+    dailyGoalPercent: 25,
+    sodiumMg: 340,
+    fiberG: 6.1,
+    sugarsG: 3.2,
+    vitaminAPct: 20,
+    vitaminCPct: 29,
+    ironPct: 14,
+    calciumPct: 9,
+    imageSeed: "frango-legumes",
+    ingredients: [
+      { name: "Frango grelhado", calories: 200, note: "Proteína principal da refeição." },
+      { name: "Couve e abóbora", calories: 90, note: "Boa combinação de fibra e micronutrientes." },
+      { name: "Cebola e tomate", calories: 60, note: "Contribuem sabor e baixo impacto calórico." },
+    ],
+    insights: [
+      "✅ Opção leve com boa densidade nutricional",
+      "💪 Excelente refeição para manter massa muscular",
+      "🌿 Pode adicionar feijão para mais fibra",
     ],
   },
 ];
