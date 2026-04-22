@@ -171,6 +171,41 @@ const confettiOffsets = [
   "94%",
 ];
 
+const localizedMealLabels: Record<AppLanguage, Record<MealType, string>> = {
+  pt: mealLabels,
+  en: {
+    "pequeno-almoco": "🌅 Breakfast",
+    almoco: "☀️ Lunch",
+    jantar: "🌙 Dinner",
+    lanches: "🍎 Snacks",
+  },
+};
+
+const localizedWeekdays: Record<AppLanguage, string[]> = {
+  pt: ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"],
+  en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+};
+
+const localizedQuotes: Record<AppLanguage, string[]> = {
+  pt: quotes,
+  en: [
+    "Every meal is a new chance to take care of yourself.",
+    "Small steps today, big results tomorrow.",
+    "You can do this — consistency is your superpower.",
+    "Lighter, stronger, more confident.",
+  ],
+};
+
+const localizedTips: Record<AppLanguage, string[]> = {
+  pt: tips,
+  en: [
+    "Cook with less oil — use 1 spoon instead of 3.",
+    "Drink 8 glasses of water daily 💧",
+    "Eat slowly — your brain needs 20 min to feel full.",
+    "Matapa is nutritious — watch peanut portion size.",
+  ],
+};
+
 function makePlaceholder(label: string, tone = "#dff7e7") {
   const encoded = encodeURIComponent(`
     <svg xmlns='http://www.w3.org/2000/svg' width='600' height='420'>
