@@ -53,6 +53,7 @@ export const Route = createFileRoute("/")({
 
 type ViewKey = "splash" | "setup" | "home" | "refeicoes" | "progresso" | "plano" | "perfil";
 type MealFlowStage = "camera" | "preview" | "analyzing" | "result";
+type SetupActivityLevel = "sedentario" | "moderado" | "intenso";
 
 type Profile = {
   name: string;
@@ -260,11 +261,15 @@ function pickMockResult(seed?: string): MockMealResult {
 
 function LumeFitApp() {
   const [view, setView] = useState<ViewKey>("splash");
-  const [setupStep, setSetupStep] = useState(1);
+  const [onboardingDone, setOnboardingDone] = useState(false);
+  const [showPlanPresentation, setShowPlanPresentation] = useState(false);
+  const [generatedPlan, setGeneratedPlan] = useState<GeneratedPlan | null>(null);
+  const [setupActivity, setSetupActivity] = useState<SetupActivityLevel>("moderado");
   const [selectedMeal, setSelectedMeal] = useState<MealType>("almoco");
   const [expandedMeals, setExpandedMeals] = useState<MealType[]>([]);
   const [notifications, setNotifications] = useState(true);
   const [metric, setMetric] = useState(true);
+  const [waterIntakeMl, setWaterIntakeMl] = useState(0);
 
   const [mealStage, setMealStage] = useState<MealFlowStage>("camera");
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -295,6 +300,12 @@ function LumeFitApp() {
     weeklyGoal: weeklyGoals[1],
     activityLevel: activityLevels[1],
     calorieGoal: 1400,
+    hydrationGoalMl: 2500,
+    macroGoals: {
+      protein: 105,
+      carbs: 158,
+      fat: 39,
+    },
   });
 
   const [entries, setEntries] = useState<MealEntry[]>([]);
@@ -321,16 +332,31 @@ function LumeFitApp() {
         notifications?: boolean;
         metric?: boolean;
         recentAnalyses?: RecentMealAnalysis[];
+        waterIntakeMl?: number;
+        onboardingDone?: boolean;
       };
 
-      if (parsed.profile) setProfile(parsed.profile);
+      if (parsed.profile) {
+        const nextProfile = {
+          ...parsed.profile,
+          hydrationGoalMl:
+            typeof parsed.profile.hydrationGoalMl === "number"
+              ? parsed.profile.hydrationGoalMl
+              : calcHydrationGoal(parsed.profile.weight, parsed.profile.activityLevel),
+          macroGoals:
+            parsed.profile.macroGoals || calcMacroGoals(parsed.profile.calorieGoal || 1400),
+        };
+        setProfile(nextProfile);
+      }
       if (parsed.entries) setEntries(parsed.entries);
       if (typeof parsed.notifications === "boolean") setNotifications(parsed.notifications);
       if (typeof parsed.metric === "boolean") setMetric(parsed.metric);
+      if (typeof parsed.waterIntakeMl === "number") setWaterIntakeMl(parsed.waterIntakeMl);
+      if (typeof parsed.onboardingDone === "boolean") setOnboardingDone(parsed.onboardingDone);
       if (parsed.recentAnalyses && parsed.recentAnalyses.length > 0) {
         setRecentAnalyses(parsed.recentAnalyses.slice(0, 5));
       }
-      setView("home");
+      setView(parsed.onboardingDone ? "home" : "setup");
     } catch {
       localStorage.removeItem(STORAGE_KEY);
     }
@@ -345,9 +371,11 @@ function LumeFitApp() {
         notifications,
         metric,
         recentAnalyses,
+        waterIntakeMl,
+        onboardingDone,
       }),
     );
-  }, [profile, entries, notifications, metric, recentAnalyses]);
+  }, [profile, entries, notifications, metric, recentAnalyses, waterIntakeMl, onboardingDone]);
 
   useEffect(() => {
     if (mealStage !== "analyzing") return;
@@ -420,10 +448,12 @@ function LumeFitApp() {
         : "var(--color-brand-danger)";
 
   const macros = {
-    protein: Math.min(100, (consumedCalories * 0.3) / 4),
-    carbs: Math.min(100, (consumedCalories * 0.45) / 4),
-    fat: Math.min(100, (consumedCalories * 0.25) / 9),
+    protein: Math.min(profile.macroGoals.protein, (consumedCalories * 0.3) / 4),
+    carbs: Math.min(profile.macroGoals.carbs, (consumedCalories * 0.45) / 4),
+    fat: Math.min(profile.macroGoals.fat, (consumedCalories * 0.25) / 9),
   };
+
+  const hydrationPercent = Math.min(100, (waterIntakeMl / Math.max(profile.hydrationGoalMl, 1)) * 100);
 
   const mealsByType = entries.reduce<Record<MealType, MealEntry[]>>(
     (acc, item) => {
