@@ -206,6 +206,71 @@ const localizedTips: Record<AppLanguage, string[]> = {
   ],
 };
 
+const uiText = {
+  pt: {
+    appName: "LUMEfit",
+    menuShare: "Compartilhar",
+    menuSettings: "Configurações",
+    menuOpenAria: "Abrir menu",
+    settingsTitle: "Configurações",
+    settingsTheme: "Tema",
+    settingsThemeLight: "Modo claro",
+    settingsThemeDark: "Modo escuro",
+    settingsLanguage: "Idioma",
+    languagePortuguese: "Português",
+    languageEnglish: "Inglês",
+    close: "Fechar",
+    greeting: "Bom dia",
+    champion: "Campeã",
+    shareGenerated: "Gerar imagem para partilha",
+    shareGenerating: "A gerar imagem...",
+    shareProgress: "Compartilhar progresso",
+    shareHint:
+      "A imagem vai incluir teu nome, metas, consumo de hoje, macros, hidratação e identidade visual LUMEfit.",
+    toastImageGenerated: "Imagem gerada com sucesso ✨",
+    toastImageFailed: "Não foi possível gerar a imagem agora.",
+    notificationTitle: "Lembrete LUMEfit",
+    notificationBody: "Guerreira, não se esqueça que tens um sonho para alcançar ✨",
+    understood: "Entendi",
+    navHome: "Home",
+    navMeals: "Refeições",
+    navProgress: "Progresso",
+    navWorkouts: "Treinos",
+    navProfile: "Perfil",
+  },
+  en: {
+    appName: "LUMEfit",
+    menuShare: "Share",
+    menuSettings: "Settings",
+    menuOpenAria: "Open menu",
+    settingsTitle: "Settings",
+    settingsTheme: "Theme",
+    settingsThemeLight: "Light mode",
+    settingsThemeDark: "Dark mode",
+    settingsLanguage: "Language",
+    languagePortuguese: "Portuguese",
+    languageEnglish: "English",
+    close: "Close",
+    greeting: "Good morning",
+    champion: "Champion",
+    shareGenerated: "Generate image to share",
+    shareGenerating: "Generating image...",
+    shareProgress: "Share progress",
+    shareHint:
+      "The image includes your name, goals, today intake, macros, hydration, and LUMEfit identity.",
+    toastImageGenerated: "Image generated successfully ✨",
+    toastImageFailed: "Could not generate the image right now.",
+    notificationTitle: "LUMEfit reminder",
+    notificationBody: "Warrior, don't forget you have a dream to achieve ✨",
+    understood: "Got it",
+    navHome: "Home",
+    navMeals: "Meals",
+    navProgress: "Progress",
+    navWorkouts: "Workouts",
+    navProfile: "Profile",
+  },
+} as const;
+
 function makePlaceholder(label: string, tone = "#dff7e7") {
   const encoded = encodeURIComponent(`
     <svg xmlns='http://www.w3.org/2000/svg' width='600' height='420'>
@@ -303,8 +368,8 @@ function generatePlan(profile: Profile): GeneratedPlan {
   };
 }
 
-function getTodayLabel() {
-  return new Date().toLocaleDateString("pt-MZ", {
+function getTodayLabel(locale: string) {
+  return new Date().toLocaleDateString(locale, {
     weekday: "long",
     day: "numeric",
     month: "long",
