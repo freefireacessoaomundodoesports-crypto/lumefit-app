@@ -915,11 +915,6 @@ function LumeFitApp() {
   useEffect(() => {
     const todayKey = getDateKey();
     writeEntriesForDate(todayKey, entries);
-    const nextEntriesByDay = {
-      ...entriesByDay,
-      [todayKey]: entries,
-    };
-    setEntriesByDay(nextEntriesByDay);
 
     const nextState: UnifiedAppState = {
       onboarding_complete: onboardingDone,
@@ -949,13 +944,19 @@ function LumeFitApp() {
     appLanguage,
     appTheme,
     achievements,
-    entriesByDay,
     updateStorageSnapshot,
-    waterIntakeMl,
     weightLog,
     writeEntriesForDate,
     writeState,
   ]);
+
+  useEffect(() => {
+    const todayKey = getDateKey();
+    setEntriesByDay((prev) => ({
+      ...prev,
+      [todayKey]: entries,
+    }));
+  }, [entries]);
 
   useEffect(() => {
     const saveLastSeenAt = () => {
@@ -1156,14 +1157,69 @@ function LumeFitApp() {
     [todayEntries],
   );
 
+  const weightHistory = useMemo(
+    () =>
+      weightLog.map((point) => ({
+        week: new Date(point.date).toLocaleDateString(localeTag, { day: "2-digit", month: "2-digit" }),
+        weight: point.weight,
+      })),
+    [localeTag, weightLog],
+  );
+
+  const last7Days = useMemo(() => {
+    const days: string[] = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i -= 1) {
+      const date = new Date(now);
+      date.setDate(now.getDate() - i);
+      days.push(getDateKey(date));
+    }
+    return days;
+  }, []);
+
   const weeklyBars = useMemo(
     () =>
-      localizedShortWeekdays.map((d, index) => {
-        const base = profile.calorieGoal - 160 + index * 40;
-        return { day: d, calories: base };
+      last7Days.map((dateKey, index) => {
+        const dayEntries = entriesByDay[dateKey] || [];
+        const calories = dayEntries.reduce((sum, item) => sum + item.calories, 0);
+        return { day: localizedShortWeekdays[index], calories };
       }),
-    [localizedShortWeekdays, profile.calorieGoal],
+    [entriesByDay, last7Days, localizedShortWeekdays],
   );
+
+  const totalLoggedCalories = useMemo(
+    () => Object.values(entriesByDay).flat().reduce((sum, item) => sum + item.calories, 0),
+    [entriesByDay],
+  );
+
+  const weeklyAverage = useMemo(
+    () => Math.round(weeklyBars.reduce((sum, day) => sum + day.calories, 0) / Math.max(weeklyBars.length, 1)),
+    [weeklyBars],
+  );
+
+  const streakDays = useMemo(() => {
+    let streak = 0;
+    const cursor = new Date();
+    while (true) {
+      const key = getDateKey(cursor);
+      const hasData = (entriesByDay[key] || []).length > 0;
+      if (!hasData) break;
+      streak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return streak;
+  }, [entriesByDay]);
+
+  const unlockedAchievements = useMemo(() => {
+    const next: string[] = [];
+    if (Object.keys(entriesByDay).some((day) => (entriesByDay[day] || []).length > 0)) {
+      next.push("Primeiro registo concluído 🌟");
+    }
+    if (streakDays >= 7) next.push("7 dias consecutivos 🔥");
+    if (weeklyBars.some((day) => day.calories > 0)) next.push("Semana ativa 💚");
+    if (waterIntakeMl > 0) next.push("Bebeu água hoje 💧");
+    return next;
+  }, [entriesByDay, streakDays, waterIntakeMl, weeklyBars]);
 
   const currentTimestamp = new Date().toLocaleTimeString(localeTag, {
     hour: "2-digit",
