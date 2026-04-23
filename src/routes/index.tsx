@@ -967,8 +967,48 @@ function LumeFitApp() {
     document.documentElement.lang = appLanguage === "en" ? "en" : "pt-MZ";
   }, [appLanguage, appTheme]);
 
+  useEffect(() => {
+    const isLowEnd =
+      (typeof navigator.hardwareConcurrency === "number" && navigator.hardwareConcurrency <= 2) ||
+      (typeof (navigator as Navigator & { deviceMemory?: number }).deviceMemory === "number" &&
+        ((navigator as Navigator & { deviceMemory?: number }).deviceMemory || 0) <= 2);
+    document.documentElement.classList.toggle("low-end-device", isLowEnd);
+    return () => {
+      document.documentElement.classList.remove("low-end-device");
+    };
+  }, []);
+
   const shellClass =
     "mx-auto min-h-screen w-full max-w-md px-4 pb-28 pt-5 text-foreground animate-fade-in sm:max-w-2xl";
+
+  const handleOpenSavedAnalysis = useCallback((item: RecentMealAnalysis) => {
+    const matched: MockMealResult = {
+      id: `saved-${item.id}`,
+      mealName: item.meal_name,
+      cuisineTag: item.nutrition_details.cuisineTag,
+      confidence: item.nutrition_details.confidence,
+      estimatedKcal: item.calories,
+      protein: item.protein,
+      carbs: item.carbs,
+      fat: item.fat,
+      dailyGoalPercent: item.nutrition_details.dailyGoalPercent,
+      sodiumMg: item.nutrition_details.sodiumMg,
+      fiberG: item.nutrition_details.fiberG,
+      sugarsG: item.nutrition_details.sugarsG,
+      vitaminAPct: item.nutrition_details.vitaminAPct,
+      vitaminCPct: item.nutrition_details.vitaminCPct,
+      ironPct: item.nutrition_details.ironPct,
+      calciumPct: item.nutrition_details.calciumPct,
+      imageSeed: "saved",
+      ingredients: item.ingredients,
+      insights: item.insights,
+    };
+    setPreviewImage(item.image ?? null);
+    setActiveResult(matched);
+    setMealStage("result");
+    setIsViewingSavedAnalysis(true);
+    setPortionMultiplier(1);
+  }, []);
 
   const handleImagePick = useCallback((file: File | null) => {
     if (!file) return;
