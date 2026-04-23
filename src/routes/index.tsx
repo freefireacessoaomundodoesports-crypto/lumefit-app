@@ -1330,6 +1330,10 @@ function LumeFitApp() {
 
   const confirmAddToDiary = useCallback(() => {
     if (!activeResult) return;
+    saveMealAbortRef.current?.abort();
+    const controller = new AbortController();
+    saveMealAbortRef.current = controller;
+
     const kcal = Math.round(activeResult.estimatedKcal * portionMultiplier);
     const protein = Math.round(activeResult.protein * portionMultiplier);
     const carbs = Math.round(activeResult.carbs * portionMultiplier);
@@ -1355,6 +1359,7 @@ function LumeFitApp() {
       if (previewImage) {
         try {
           const compressed = await compressImageForStorage(previewImage);
+          if (controller.signal.aborted || !isMountedRef.current) return;
           if (compressed && compressed.length < MAX_RECENT_IMAGE_LENGTH) {
             compressedImage = compressed;
           }
@@ -1387,7 +1392,9 @@ function LumeFitApp() {
         }
       }
 
-      setRecentAnalyses(safeList.slice(0, MAX_RECENT_MEALS));
+      if (!controller.signal.aborted && isMountedRef.current) {
+        setRecentAnalyses(safeList.slice(0, MAX_RECENT_MEALS));
+      }
     })();
 
     const selectedMealName = localizedMeals[selectedMeal].replace(/^[^ ]+ /, "").toLowerCase();
@@ -1875,7 +1882,10 @@ function LumeFitApp() {
 
   const handleNativeShare = useCallback(async () => {
     if (!shareImageUrl || !navigator.share) return;
-    const response = await fetch(shareImageUrl);
+    shareFetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    shareFetchAbortRef.current = controller;
+    const response = await fetch(shareImageUrl, { signal: controller.signal });
     const blob = await response.blob();
     const file = new File(
       [blob],
