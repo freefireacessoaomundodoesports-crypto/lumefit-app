@@ -844,7 +844,7 @@ function LumeFitApp() {
                   return [];
                 }
               })(),
-          weight_log: [{ date: todayKey, weight: fallbackProfile.weight }],
+          weight_log: [],
           achievements: [],
           completed_training_phases: legacy.completedTrainingPhases,
           previous_weight: legacy.previousWeight,
