@@ -960,9 +960,10 @@ function LumeFitApp() {
   useEffect(() => {
     const saveLastSeenAt = () => {
       const parsed = storageSnapshotRef.current;
+      if (!parsed) return;
       writeState({
         ...parsed,
-        lastSeenAt: new Date().toISOString(),
+        last_seen_at: new Date().toISOString(),
       });
     };
 
@@ -1273,14 +1274,17 @@ function LumeFitApp() {
 
       try {
         safeList = [baseAnalysis, ...(Array.isArray(recentAnalyses) ? recentAnalyses : [])].slice(0, MAX_RECENT_MEALS);
-        localStorage.setItem(RECENT_MEAL_ANALYSES_KEY, JSON.stringify(safeList));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...(storageSnapshotRef.current || {}), recent_analyses: safeList }));
       } catch (error) {
         const isQuota = error instanceof DOMException && error.name === "QuotaExceededError";
         if (isQuota) {
           const withoutImage = buildRecentAnalysis(activeResult, kcal, null);
           try {
             safeList = [withoutImage, ...(Array.isArray(recentAnalyses) ? recentAnalyses : [])].slice(0, MAX_RECENT_MEALS);
-            localStorage.setItem(RECENT_MEAL_ANALYSES_KEY, JSON.stringify(safeList));
+            localStorage.setItem(
+              STORAGE_KEY,
+              JSON.stringify({ ...(storageSnapshotRef.current || {}), recent_analyses: safeList }),
+            );
           } catch {
             safeList = [withoutImage];
           }
@@ -1837,26 +1841,6 @@ function LumeFitApp() {
     }));
     setWaterIntakeMl(0);
     setOnboardingDone(true);
-    try {
-      localStorage.setItem(ONBOARDING_COMPLETE_KEY, "true");
-      localStorage.setItem(
-        ONBOARDING_PROFILE_KEY,
-        JSON.stringify({
-          name: finalizedProfile.name,
-          age: finalizedProfile.age,
-          city: finalizedProfile.city,
-          weight: finalizedProfile.weight,
-          height: finalizedProfile.height,
-          target_weight: finalizedProfile.targetWeight,
-          goal: finalizedProfile.weeklyGoal,
-          activity_level: finalizedProfile.activityLevel,
-          daily_calorie_goal: finalizedProfile.calorieGoal,
-          date_joined: firstUseAt,
-        }),
-      );
-    } catch {
-      // silent fail
-    }
     setShowPlanPresentation(false);
     setToastMessage(appLanguage === "en" ? "✅ Goals applied successfully." : "✅ Metas aplicadas com sucesso.");
     setShowToast(true);
