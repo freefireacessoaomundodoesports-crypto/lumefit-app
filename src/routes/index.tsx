@@ -53,7 +53,7 @@ export const Route = createFileRoute("/")({
   component: LumeFitApp,
 });
 
-type ViewKey = "splash" | "setup" | "home" | "refeicoes" | "progresso" | "treinos" | "perfil";
+type ViewKey = "setup" | "home" | "refeicoes" | "progresso" | "treinos" | "perfil";
 type MealFlowStage = "camera" | "preview" | "analyzing" | "result";
 type SetupActivityLevel = "sedentario" | "moderado" | "intenso";
 type AppLanguage = "pt" | "en";
@@ -636,6 +636,9 @@ function LumeFitApp() {
   const timeoutIdsRef = useRef<number[]>([]);
   const storageSnapshotRef = useRef<UnifiedAppState | null>(null);
   const hasHydratedFromStorageRef = useRef(false);
+  const isMountedRef = useRef(false);
+  const hasInitializedWeightTrackingRef = useRef(false);
+  const latestWeightRef = useRef<number | null>(null);
   const shareFetchAbortRef = useRef<AbortController | null>(null);
   const saveMealAbortRef = useRef<AbortController | null>(null);
   const [isViewingSavedAnalysis, setIsViewingSavedAnalysis] = useState(false);
@@ -966,6 +969,28 @@ function LumeFitApp() {
   }, [entries]);
 
   useEffect(() => {
+    if (!onboardingDone) return;
+    if (!hasInitializedWeightTrackingRef.current) {
+      hasInitializedWeightTrackingRef.current = true;
+      latestWeightRef.current = profile.weight;
+      return;
+    }
+
+    if (latestWeightRef.current === profile.weight) return;
+    latestWeightRef.current = profile.weight;
+
+    const date = getDateKey();
+    setWeightLog((prev) => {
+      const normalized = Array.isArray(prev) ? prev : [];
+      const existing = normalized.find((item) => item.date === date);
+      if (existing) {
+        return normalized.map((item) => (item.date === date ? { ...item, weight: profile.weight } : item));
+      }
+      return [...normalized, { date, weight: profile.weight }];
+    });
+  }, [onboardingDone, profile.weight]);
+
+  useEffect(() => {
     const saveLastSeenAt = () => {
       const parsed = storageSnapshotRef.current;
       if (!parsed) return;
@@ -991,9 +1016,15 @@ function LumeFitApp() {
   }, []);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       timeoutIdsRef.current.forEach((id) => window.clearTimeout(id));
       timeoutIdsRef.current = [];
+      shareFetchAbortRef.current?.abort();
+      shareFetchAbortRef.current = null;
+      saveMealAbortRef.current?.abort();
+      saveMealAbortRef.current = null;
       if (previewObjectUrlRef.current) {
         URL.revokeObjectURL(previewObjectUrlRef.current);
         previewObjectUrlRef.current = null;
@@ -1299,6 +1330,10 @@ function LumeFitApp() {
 
   const confirmAddToDiary = useCallback(() => {
     if (!activeResult) return;
+    saveMealAbortRef.current?.abort();
+    const controller = new AbortController();
+    saveMealAbortRef.current = controller;
+
     const kcal = Math.round(activeResult.estimatedKcal * portionMultiplier);
     const protein = Math.round(activeResult.protein * portionMultiplier);
     const carbs = Math.round(activeResult.carbs * portionMultiplier);
@@ -1324,6 +1359,7 @@ function LumeFitApp() {
       if (previewImage) {
         try {
           const compressed = await compressImageForStorage(previewImage);
+          if (controller.signal.aborted || !isMountedRef.current) return;
           if (compressed && compressed.length < MAX_RECENT_IMAGE_LENGTH) {
             compressedImage = compressed;
           }
@@ -1356,7 +1392,9 @@ function LumeFitApp() {
         }
       }
 
-      setRecentAnalyses(safeList.slice(0, MAX_RECENT_MEALS));
+      if (!controller.signal.aborted && isMountedRef.current) {
+        setRecentAnalyses(safeList.slice(0, MAX_RECENT_MEALS));
+      }
     })();
 
     const selectedMealName = localizedMeals[selectedMeal].replace(/^[^ ]+ /, "").toLowerCase();
@@ -1844,7 +1882,10 @@ function LumeFitApp() {
 
   const handleNativeShare = useCallback(async () => {
     if (!shareImageUrl || !navigator.share) return;
-    const response = await fetch(shareImageUrl);
+    shareFetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    shareFetchAbortRef.current = controller;
+    const response = await fetch(shareImageUrl, { signal: controller.signal });
     const blob = await response.blob();
     const file = new File(
       [blob],
