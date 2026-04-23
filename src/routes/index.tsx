@@ -962,18 +962,23 @@ function LumeFitApp() {
   const shellClass =
     "mx-auto min-h-screen w-full max-w-md px-4 pb-28 pt-5 text-foreground animate-fade-in sm:max-w-2xl";
 
-  const handleImagePick = (file: File | null) => {
+  const handleImagePick = useCallback((file: File | null) => {
     if (!file) return;
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current);
+      previewObjectUrlRef.current = null;
+    }
     const fileUrl = URL.createObjectURL(file);
+    previewObjectUrlRef.current = fileUrl;
     setPreviewImage(fileUrl);
     setActiveResult(pickMockResult(file.name));
     setIsViewingSavedAnalysis(false);
     setMealStage("preview");
     setNutritionOpen(false);
     setExpandedIngredient(null);
-  };
+  }, []);
 
-  const confirmAddToDiary = () => {
+  const confirmAddToDiary = useCallback(() => {
     if (!activeResult) return;
     const kcal = Math.round(activeResult.estimatedKcal * portionMultiplier);
     const protein = Math.round(activeResult.protein * portionMultiplier);
@@ -1012,18 +1017,14 @@ function LumeFitApp() {
       let safeList: RecentMealAnalysis[] = [];
 
       try {
-        const existingRaw = localStorage.getItem(RECENT_MEAL_ANALYSES_KEY);
-        const existing = existingRaw ? (JSON.parse(existingRaw) as RecentMealAnalysis[]) : [];
-        safeList = [baseAnalysis, ...(Array.isArray(existing) ? existing : [])].slice(0, MAX_RECENT_MEALS);
+        safeList = [baseAnalysis, ...(Array.isArray(recentAnalyses) ? recentAnalyses : [])].slice(0, MAX_RECENT_MEALS);
         localStorage.setItem(RECENT_MEAL_ANALYSES_KEY, JSON.stringify(safeList));
       } catch (error) {
         const isQuota = error instanceof DOMException && error.name === "QuotaExceededError";
         if (isQuota) {
           const withoutImage = buildRecentAnalysis(activeResult, kcal, null);
           try {
-            const existingRaw = localStorage.getItem(RECENT_MEAL_ANALYSES_KEY);
-            const existing = existingRaw ? (JSON.parse(existingRaw) as RecentMealAnalysis[]) : [];
-            safeList = [withoutImage, ...(Array.isArray(existing) ? existing : [])].slice(0, MAX_RECENT_MEALS);
+            safeList = [withoutImage, ...(Array.isArray(recentAnalyses) ? recentAnalyses : [])].slice(0, MAX_RECENT_MEALS);
             localStorage.setItem(RECENT_MEAL_ANALYSES_KEY, JSON.stringify(safeList));
           } catch {
             safeList = [withoutImage];
@@ -1045,19 +1046,37 @@ function LumeFitApp() {
     setShowToast(true);
     setShowConfetti(true);
 
-    setTimeout(() => setShowConfetti(false), 1500);
-    setTimeout(() => {
+    setManagedTimeout(() => setShowConfetti(false), 1500);
+    setManagedTimeout(() => {
       setIsSavingMeal(false);
       setMealStage("camera");
       setIsViewingSavedAnalysis(false);
       setView("home");
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+        previewObjectUrlRef.current = null;
+      }
     }, 1600);
 
-    setTimeout(() => setShowToast(false), 2600);
-  };
+    setManagedTimeout(() => setShowToast(false), 2600);
+  }, [
+    activeResult,
+    appLanguage,
+    buildRecentAnalysis,
+    localizedMeals,
+    portionMultiplier,
+    previewImage,
+    recentAnalyses,
+    selectedMeal,
+    setManagedTimeout,
+  ]);
 
-  const resetMealFlow = () => {
+  const resetMealFlow = useCallback(() => {
     setMealStage("camera");
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current);
+      previewObjectUrlRef.current = null;
+    }
     setPreviewImage(null);
     setActiveResult(null);
     setPortionMultiplier(1);
@@ -1065,13 +1084,13 @@ function LumeFitApp() {
     setExpandedIngredient(null);
     setAnalysisProgress(0);
     setAnalysisMessageIndex(0);
-  };
+  }, []);
 
-  const handleGeneratePlan = () => {
+  const handleGeneratePlan = useCallback(() => {
     const nextPlan = generatePlan(onboardingPreviewProfile);
     setGeneratedPlan(nextPlan);
     setShowPlanPresentation(true);
-  };
+  }, [onboardingPreviewProfile]);
 
   const shareSummary =
     appLanguage === "en"
