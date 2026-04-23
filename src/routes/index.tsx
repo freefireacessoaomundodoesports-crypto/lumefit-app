@@ -2921,8 +2921,9 @@ function LumeFitApp() {
                   onClick={() => {
                     try {
                       localStorage.removeItem(STORAGE_KEY);
-                      localStorage.removeItem(RECENT_MEAL_ANALYSES_KEY);
-                      localStorage.removeItem(LAST_ACTIVE_DATE_KEY);
+                      Object.keys(localStorage)
+                        .filter((key) => isEntriesStorageKey(key))
+                        .forEach((key) => localStorage.removeItem(key));
                     } catch {
                       // silent fail
                     }
