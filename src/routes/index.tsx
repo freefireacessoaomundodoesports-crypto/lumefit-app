@@ -99,6 +99,9 @@ type MealEntry = {
   meal: MealType;
   foodName: string;
   calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
   quantity: number;
   timestamp: string;
   photo?: string;
@@ -106,13 +109,36 @@ type MealEntry = {
 
 type RecentMealAnalysis = {
   id: string;
-  name: string;
-  image: string;
-  resultId: string;
-  timestampLabel: string;
+  meal_name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  ingredients: MockMealResult["ingredients"];
+  insights: MockMealResult["insights"];
+  nutrition_details: {
+    sodiumMg: number;
+    fiberG: number;
+    sugarsG: number;
+    vitaminAPct: number;
+    vitaminCPct: number;
+    ironPct: number;
+    calciumPct: number;
+    confidence: number;
+    cuisineTag: string;
+    dailyGoalPercent: number;
+  };
+  timestamp: string;
+  image: string | null;
 };
 
 const STORAGE_KEY = "lumefit_state_v1";
+const ONBOARDING_COMPLETE_KEY = "onboarding_complete";
+const ONBOARDING_PROFILE_KEY = "onboarding_profile";
+const LAST_ACTIVE_DATE_KEY = "last_active_date";
+const RECENT_MEAL_ANALYSES_KEY = "recent_meal_analyses";
+const MAX_RECENT_MEALS = 5;
+const MAX_RECENT_IMAGE_LENGTH = 150000;
 
 const trainingPhases = [
   {
@@ -300,38 +326,123 @@ function makePlaceholder(label: string, tone = "#dff7e7") {
 const initialRecentAnalyses: RecentMealAnalysis[] = [
   {
     id: "seed-1",
-    name: "Xima com Matapa",
+    meal_name: "Xima com Matapa",
+    calories: 487,
+    protein: 28,
+    carbs: 58,
+    fat: 14,
+    ingredients: mockMealResults[0].ingredients,
+    insights: mockMealResults[0].insights,
+    nutrition_details: {
+      sodiumMg: mockMealResults[0].sodiumMg,
+      fiberG: mockMealResults[0].fiberG,
+      sugarsG: mockMealResults[0].sugarsG,
+      vitaminAPct: mockMealResults[0].vitaminAPct,
+      vitaminCPct: mockMealResults[0].vitaminCPct,
+      ironPct: mockMealResults[0].ironPct,
+      calciumPct: mockMealResults[0].calciumPct,
+      confidence: mockMealResults[0].confidence,
+      cuisineTag: mockMealResults[0].cuisineTag,
+      dailyGoalPercent: mockMealResults[0].dailyGoalPercent,
+    },
+    timestamp: new Date().toISOString(),
     image: makePlaceholder("Xima + Matapa"),
-    resultId: mockMealResults[0].id,
-    timestampLabel: "Hoje, 11:48",
   },
   {
     id: "seed-2",
-    name: "Arroz com Frango",
+    meal_name: "Arroz com Frango",
+    calories: 412,
+    protein: 31,
+    carbs: 46,
+    fat: 10,
+    ingredients: mockMealResults[1].ingredients,
+    insights: mockMealResults[1].insights,
+    nutrition_details: {
+      sodiumMg: mockMealResults[1].sodiumMg,
+      fiberG: mockMealResults[1].fiberG,
+      sugarsG: mockMealResults[1].sugarsG,
+      vitaminAPct: mockMealResults[1].vitaminAPct,
+      vitaminCPct: mockMealResults[1].vitaminCPct,
+      ironPct: mockMealResults[1].ironPct,
+      calciumPct: mockMealResults[1].calciumPct,
+      confidence: mockMealResults[1].confidence,
+      cuisineTag: mockMealResults[1].cuisineTag,
+      dailyGoalPercent: mockMealResults[1].dailyGoalPercent,
+    },
+    timestamp: new Date().toISOString(),
     image: makePlaceholder("Arroz + Frango", "#dcfce7"),
-    resultId: mockMealResults[1].id,
-    timestampLabel: "Hoje, 09:10",
   },
   {
     id: "seed-3",
-    name: "Feijão Nhemba",
+    meal_name: "Feijão Nhemba",
+    calories: 390,
+    protein: 18,
+    carbs: 60,
+    fat: 8,
+    ingredients: mockMealResults[2].ingredients,
+    insights: mockMealResults[2].insights,
+    nutrition_details: {
+      sodiumMg: mockMealResults[2].sodiumMg,
+      fiberG: mockMealResults[2].fiberG,
+      sugarsG: mockMealResults[2].sugarsG,
+      vitaminAPct: mockMealResults[2].vitaminAPct,
+      vitaminCPct: mockMealResults[2].vitaminCPct,
+      ironPct: mockMealResults[2].ironPct,
+      calciumPct: mockMealResults[2].calciumPct,
+      confidence: mockMealResults[2].confidence,
+      cuisineTag: mockMealResults[2].cuisineTag,
+      dailyGoalPercent: mockMealResults[2].dailyGoalPercent,
+    },
+    timestamp: new Date().toISOString(),
     image: makePlaceholder("Feijão Nhemba"),
-    resultId: mockMealResults[2].id,
-    timestampLabel: "Ontem, 20:16",
   },
   {
     id: "seed-4",
-    name: "Peixe com Xima",
+    meal_name: "Peixe com Xima",
+    calories: 520,
+    protein: 34,
+    carbs: 57,
+    fat: 18,
+    ingredients: mockMealResults[3].ingredients,
+    insights: mockMealResults[3].insights,
+    nutrition_details: {
+      sodiumMg: mockMealResults[3].sodiumMg,
+      fiberG: mockMealResults[3].fiberG,
+      sugarsG: mockMealResults[3].sugarsG,
+      vitaminAPct: mockMealResults[3].vitaminAPct,
+      vitaminCPct: mockMealResults[3].vitaminCPct,
+      ironPct: mockMealResults[3].ironPct,
+      calciumPct: mockMealResults[3].calciumPct,
+      confidence: mockMealResults[3].confidence,
+      cuisineTag: mockMealResults[3].cuisineTag,
+      dailyGoalPercent: mockMealResults[3].dailyGoalPercent,
+    },
+    timestamp: new Date().toISOString(),
     image: makePlaceholder("Peixe + Xima", "#bbf7d0"),
-    resultId: mockMealResults[3].id,
-    timestampLabel: "Ontem, 13:40",
   },
   {
     id: "seed-5",
-    name: "Frango Legumes",
+    meal_name: "Frango Legumes",
+    calories: 365,
+    protein: 36,
+    carbs: 32,
+    fat: 11,
+    ingredients: mockMealResults[5].ingredients,
+    insights: mockMealResults[5].insights,
+    nutrition_details: {
+      sodiumMg: mockMealResults[5].sodiumMg,
+      fiberG: mockMealResults[5].fiberG,
+      sugarsG: mockMealResults[5].sugarsG,
+      vitaminAPct: mockMealResults[5].vitaminAPct,
+      vitaminCPct: mockMealResults[5].vitaminCPct,
+      ironPct: mockMealResults[5].ironPct,
+      calciumPct: mockMealResults[5].calciumPct,
+      confidence: mockMealResults[5].confidence,
+      cuisineTag: mockMealResults[5].cuisineTag,
+      dailyGoalPercent: mockMealResults[5].dailyGoalPercent,
+    },
+    timestamp: new Date().toISOString(),
     image: makePlaceholder("Frango + Legumes"),
-    resultId: mockMealResults[5].id,
-    timestampLabel: "Ontem, 08:24",
   },
 ];
 
