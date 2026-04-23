@@ -694,15 +694,27 @@ function LumeFitApp() {
 
       if (onboardingComplete) setOnboardingDone(true);
 
-      if (parsed.profile) {
+      let restoredProfile = parsed.profile;
+      if (!restoredProfile) {
+        try {
+          const onboardingProfileRaw = localStorage.getItem(ONBOARDING_PROFILE_KEY);
+          if (onboardingProfileRaw) {
+            restoredProfile = JSON.parse(onboardingProfileRaw) as Profile;
+          }
+        } catch {
+          // silent fail
+        }
+      }
+
+      if (restoredProfile) {
         const nextProfile = {
-          ...parsed.profile,
+          ...restoredProfile,
           hydrationGoalMl:
-            typeof parsed.profile.hydrationGoalMl === "number"
-              ? parsed.profile.hydrationGoalMl
-              : calcHydrationGoal(parsed.profile.weight, parsed.profile.activityLevel),
+            typeof restoredProfile.hydrationGoalMl === "number"
+              ? restoredProfile.hydrationGoalMl
+              : calcHydrationGoal(restoredProfile.weight, restoredProfile.activityLevel),
           macroGoals:
-            parsed.profile.macroGoals || calcMacroGoals(parsed.profile.calorieGoal || 1400),
+            restoredProfile.macroGoals || calcMacroGoals(restoredProfile.calorieGoal || 1400),
         };
         setProfile(nextProfile);
       }
@@ -781,6 +793,14 @@ function LumeFitApp() {
     appLanguage,
     appTheme,
   ]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(RECENT_MEAL_ANALYSES_KEY, JSON.stringify(recentAnalyses.slice(0, MAX_RECENT_MEALS)));
+    } catch {
+      // silent fail
+    }
+  }, [recentAnalyses]);
 
   useEffect(() => {
     const saveLastSeenAt = () => {
