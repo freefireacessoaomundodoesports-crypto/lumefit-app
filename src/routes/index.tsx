@@ -91,6 +91,44 @@ type PersistedState = {
   appTheme?: AppTheme;
 };
 
+type WeightLogEntry = {
+  date: string;
+  weight: number;
+};
+
+type UnifiedAppState = {
+  onboarding_complete: boolean;
+  last_active_date: string;
+  profile: {
+    name: string;
+    age: number;
+    city: string;
+    weight: number;
+    height: number;
+    target_weight: number;
+    goal: string;
+    activity_level: string;
+    daily_calorie_goal: number;
+    date_joined: string;
+  };
+  today: {
+    calories_consumed: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    water: number;
+    meals: MealEntry[];
+  };
+  recent_analyses: RecentMealAnalysis[];
+  weight_log: WeightLogEntry[];
+  achievements: string[];
+  completed_training_phases?: Record<"primeiro-mes" | "segundo-mes" | "terceiro-mes", boolean>;
+  previous_weight?: number;
+  last_seen_at?: string;
+  app_language?: AppLanguage;
+  app_theme?: AppTheme;
+};
+
 type GeneratedPlan = {
   calorieGoal: number;
   hydrationGoalMl: number;
@@ -140,11 +178,13 @@ type RecentMealAnalysis = {
   image: string | null;
 };
 
-const STORAGE_KEY = "lumefit_state_v1";
-const ONBOARDING_COMPLETE_KEY = "onboarding_complete";
-const ONBOARDING_PROFILE_KEY = "onboarding_profile";
-const LAST_ACTIVE_DATE_KEY = "last_active_date";
-const RECENT_MEAL_ANALYSES_KEY = "recent_meal_analyses";
+const STORAGE_KEY = "lumefit_v1";
+const LEGACY_STORAGE_KEY = "lumefit_state_v1";
+const LEGACY_ONBOARDING_COMPLETE_KEY = "onboarding_complete";
+const LEGACY_ONBOARDING_PROFILE_KEY = "onboarding_profile";
+const LEGACY_LAST_ACTIVE_DATE_KEY = "last_active_date";
+const LEGACY_RECENT_MEAL_ANALYSES_KEY = "recent_meal_analyses";
+const LEGACY_PROFILE_KEY = "perfil_de_integracao";
 const MAX_RECENT_MEALS = 5;
 const MAX_RECENT_IMAGE_LENGTH = 150000;
 
@@ -341,6 +381,59 @@ function getDateKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
+function getEntriesStorageKey(dateKey: string) {
+  return `entries_${dateKey}`;
+}
+
+function isEntriesStorageKey(key: string) {
+  return /^entries_\d{4}-\d{2}-\d{2}$/.test(key);
+}
+
+function toProfileFromUnified(state: UnifiedAppState["profile"]): Profile {
+  const calorieGoal = Math.max(1200, state.daily_calorie_goal || 1400);
+  const activityLevel = state.activity_level || activityLevels[1];
+  const weight = Number(state.weight) || 78;
+  return {
+    name: state.name || "",
+    age: Number(state.age) || 30,
+    city: state.city || "",
+    weight,
+    height: Number(state.height) || 163,
+    targetWeight: Number(state.target_weight) || 68,
+    weeklyGoal: state.goal || weeklyGoals[1],
+    activityLevel,
+    calorieGoal,
+    hydrationGoalMl: calcHydrationGoal(weight, activityLevel),
+    macroGoals: calcMacroGoals(calorieGoal),
+  };
+}
+
+function toUnifiedProfile(profile: Profile, dateJoined: string): UnifiedAppState["profile"] {
+  return {
+    name: profile.name,
+    age: profile.age,
+    city: profile.city,
+    weight: profile.weight,
+    height: profile.height,
+    target_weight: profile.targetWeight,
+    goal: profile.weeklyGoal,
+    activity_level: profile.activityLevel,
+    daily_calorie_goal: profile.calorieGoal,
+    date_joined: dateJoined,
+  };
+}
+
+function summarizeToday(meals: MealEntry[], water: number) {
+  return {
+    calories_consumed: meals.reduce((sum, item) => sum + item.calories, 0),
+    protein: meals.reduce((sum, item) => sum + (item.protein || 0), 0),
+    carbs: meals.reduce((sum, item) => sum + (item.carbs || 0), 0),
+    fat: meals.reduce((sum, item) => sum + (item.fat || 0), 0),
+    water,
+    meals,
+  };
+}
+
 async function compressImageForStorage(imageSource: string) {
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const instance = new Image();
@@ -422,12 +515,9 @@ function calcMacroGoals(calorieGoal: number) {
 }
 
 function generatePlan(profile: Profile): GeneratedPlan {
-  const calorieGoal = calcGoal(
-    profile.weight,
-    profile.height,
-    profile.age,
-    profile.activityLevel,
-    profile.weeklyGoal,
+  const calorieGoal = Math.max(
+    1200,
+    profile.calorieGoal || calcGoal(profile.weight, profile.height, profile.age, profile.activityLevel, profile.weeklyGoal),
   );
   const hydrationGoalMl = calcHydrationGoal(profile.weight, profile.activityLevel);
   const macroGoals = calcMacroGoals(calorieGoal);
@@ -536,41 +626,74 @@ function LumeFitApp() {
   });
 
   const [entries, setEntries] = useState<MealEntry[]>([]);
-  const [weightHistory, setWeightHistory] = useState([
-    { week: "Sem 1", weight: 80 },
-    { week: "Sem 2", weight: 79.2 },
-    { week: "Sem 3", weight: 78.6 },
-    { week: "Sem 4", weight: 78 },
-    { week: "Sem 5", weight: 77.3 },
-    { week: "Sem 6", weight: 76.8 },
-  ]);
+  const [entriesByDay, setEntriesByDay] = useState<Record<string, MealEntry[]>>({});
+  const [weightLog, setWeightLog] = useState<WeightLogEntry[]>([]);
+  const [achievements, setAchievements] = useState<string[]>([]);
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const previewObjectUrlRef = useRef<string | null>(null);
   const timeoutIdsRef = useRef<number[]>([]);
-  const storageSnapshotRef = useRef<PersistedState>({});
+  const storageSnapshotRef = useRef<UnifiedAppState | null>(null);
+  const shareFetchAbortRef = useRef<AbortController | null>(null);
+  const saveMealAbortRef = useRef<AbortController | null>(null);
   const [isViewingSavedAnalysis, setIsViewingSavedAnalysis] = useState(false);
 
-  const writeState = (next: PersistedState) => {
+  const writeState = useCallback((next: UnifiedAppState) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {
       // silent fail by requirement
     }
-  };
+  }, []);
 
-  const readStorageState = useCallback((): PersistedState => {
+  const readStorageState = useCallback((): UnifiedAppState | null => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as PersistedState) : {};
+      return raw ? (JSON.parse(raw) as UnifiedAppState) : null;
     } catch {
-      return {};
+      return null;
     }
   }, []);
 
-  const updateStorageSnapshot = useCallback((next: PersistedState) => {
+  const updateStorageSnapshot = useCallback((next: UnifiedAppState) => {
     storageSnapshotRef.current = next;
+  }, []);
+
+  const readEntriesForDate = useCallback((dateKey: string): MealEntry[] => {
+    try {
+      const raw = localStorage.getItem(getEntriesStorageKey(dateKey));
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as MealEntry[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const writeEntriesForDate = useCallback((dateKey: string, dayEntries: MealEntry[]) => {
+    try {
+      localStorage.setItem(getEntriesStorageKey(dateKey), JSON.stringify(dayEntries));
+    } catch {
+      // silent fail by requirement
+    }
+  }, []);
+
+  const readAllEntriesByDay = useCallback((): Record<string, MealEntry[]> => {
+    try {
+      const output: Record<string, MealEntry[]> = {};
+      for (let i = 0; i < localStorage.length; i += 1) {
+        const key = localStorage.key(i);
+        if (!key || !isEntriesStorageKey(key)) continue;
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw) as MealEntry[];
+        output[key.replace("entries_", "")] = Array.isArray(parsed) ? parsed : [];
+      }
+      return output;
+    } catch {
+      return {};
+    }
   }, []);
 
   const setManagedTimeout = useCallback((callback: () => void, delay: number) => {
@@ -581,6 +704,12 @@ function LumeFitApp() {
     timeoutIdsRef.current.push(timeoutId);
     return timeoutId;
   }, []);
+
+  const showComingSoonToast = useCallback(() => {
+    setToastMessage("Em breve disponível! ✨");
+    setShowToast(true);
+    setManagedTimeout(() => setShowToast(false), 1800);
+  }, [setManagedTimeout]);
 
   const buildRecentAnalysis = (result: MockMealResult, kcal: number, image: string | null): RecentMealAnalysis => ({
     id: Date.now().toString(),
@@ -607,7 +736,7 @@ function LumeFitApp() {
     image,
   });
 
-  const resetDailyStates = () => {
+  const resetDailyStates = useCallback(() => {
     setEntries([]);
     setWaterIntakeMl(0);
     setExpandedMeals([]);
@@ -628,103 +757,181 @@ function LumeFitApp() {
     setShowToast(false);
     setToastMessage("");
     setIsViewingSavedAnalysis(false);
-  };
+  }, []);
 
   useEffect(() => {
-    const parsed = readStorageState();
-    updateStorageSnapshot(parsed);
+    const todayKey = getDateKey();
     try {
-      const onboardingFlagRaw = localStorage.getItem(ONBOARDING_COMPLETE_KEY);
-      const onboardingComplete = onboardingFlagRaw === "true";
+      let unifiedState = readStorageState();
 
-      if (onboardingComplete) setOnboardingDone(true);
-
-      let restoredProfile = parsed.profile;
-      if (!restoredProfile) {
-        try {
-          const onboardingProfileRaw = localStorage.getItem(ONBOARDING_PROFILE_KEY);
-          if (onboardingProfileRaw) {
-            restoredProfile = JSON.parse(onboardingProfileRaw) as Profile;
+      if (!unifiedState) {
+        const legacy = (() => {
+          try {
+            const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+            return raw ? (JSON.parse(raw) as PersistedState) : {};
+          } catch {
+            return {} as PersistedState;
           }
-        } catch {
-          // silent fail
-        }
-      }
+        })();
 
-      if (restoredProfile) {
-        const nextProfile = {
-          ...restoredProfile,
-          hydrationGoalMl:
-            typeof restoredProfile.hydrationGoalMl === "number"
-              ? restoredProfile.hydrationGoalMl
-              : calcHydrationGoal(restoredProfile.weight, restoredProfile.activityLevel),
-          macroGoals:
-            restoredProfile.macroGoals || calcMacroGoals(restoredProfile.calorieGoal || 1400),
+        const legacyProfile = (() => {
+          if (legacy.profile) return legacy.profile;
+          try {
+            const profileRaw = localStorage.getItem(LEGACY_ONBOARDING_PROFILE_KEY) || localStorage.getItem(LEGACY_PROFILE_KEY);
+            if (!profileRaw) return null;
+            const parsed = JSON.parse(profileRaw) as Partial<Profile> & {
+              target_weight?: number;
+              goal?: string;
+              activity_level?: string;
+              daily_calorie_goal?: number;
+              date_joined?: string;
+            };
+            const base: Profile = {
+              name: parsed.name || "",
+              age: Number(parsed.age) || 30,
+              city: parsed.city || "",
+              weight: Number(parsed.weight) || 78,
+              height: Number(parsed.height) || 163,
+              targetWeight: Number(parsed.targetWeight ?? parsed.target_weight) || 68,
+              weeklyGoal: (parsed.weeklyGoal ?? parsed.goal) || weeklyGoals[1],
+              activityLevel: (parsed.activityLevel ?? parsed.activity_level) || activityLevels[1],
+              calorieGoal: Number(parsed.calorieGoal ?? parsed.daily_calorie_goal) || 1400,
+              hydrationGoalMl: calcHydrationGoal(Number(parsed.weight) || 78, (parsed.activityLevel ?? parsed.activity_level) || activityLevels[1]),
+              macroGoals: calcMacroGoals(Number(parsed.calorieGoal ?? parsed.daily_calorie_goal) || 1400),
+            };
+            return base;
+          } catch {
+            return null;
+          }
+        })();
+
+        const fallbackProfile = legacyProfile || profile;
+        const dateJoined = legacy.firstUseAt || new Date().toISOString();
+        const allLegacyEntries = Array.isArray(legacy.entries) ? legacy.entries : [];
+        const entriesGrouped = allLegacyEntries.reduce<Record<string, MealEntry[]>>((acc, entry) => {
+          const day = entry.timestamp.slice(0, 10) || todayKey;
+          acc[day] = [...(acc[day] || []), entry];
+          return acc;
+        }, {});
+        Object.entries(entriesGrouped).forEach(([day, dayEntries]) => writeEntriesForDate(day, dayEntries));
+
+        unifiedState = {
+          onboarding_complete:
+            Boolean(legacy.onboardingDone) ||
+            (() => {
+              try {
+                return localStorage.getItem(LEGACY_ONBOARDING_COMPLETE_KEY) === "true";
+              } catch {
+                return false;
+              }
+            })(),
+          last_active_date:
+            (() => {
+              try {
+                return localStorage.getItem(LEGACY_LAST_ACTIVE_DATE_KEY) || todayKey;
+              } catch {
+                return todayKey;
+              }
+            })(),
+          profile: toUnifiedProfile(fallbackProfile, dateJoined),
+          today: summarizeToday(entriesGrouped[todayKey] || [], typeof legacy.waterIntakeMl === "number" ? legacy.waterIntakeMl : 0),
+          recent_analyses: Array.isArray(legacy.recentAnalyses)
+            ? legacy.recentAnalyses.slice(0, MAX_RECENT_MEALS)
+            : (() => {
+                try {
+                  const raw = localStorage.getItem(LEGACY_RECENT_MEAL_ANALYSES_KEY);
+                  if (!raw) return [];
+                  const parsed = JSON.parse(raw) as RecentMealAnalysis[];
+                  return Array.isArray(parsed) ? parsed.slice(0, MAX_RECENT_MEALS) : [];
+                } catch {
+                  return [];
+                }
+              })(),
+          weight_log: [],
+          achievements: [],
+          completed_training_phases: legacy.completedTrainingPhases,
+          previous_weight: legacy.previousWeight,
+          last_seen_at: legacy.lastSeenAt,
+          app_language: legacy.appLanguage,
+          app_theme: legacy.appTheme,
         };
-        setProfile(nextProfile);
-      }
-      if (parsed.entries) setEntries(parsed.entries);
-      if (typeof parsed.waterIntakeMl === "number") setWaterIntakeMl(parsed.waterIntakeMl);
-      if (!onboardingComplete && typeof parsed.onboardingDone === "boolean") setOnboardingDone(parsed.onboardingDone);
-      if (typeof parsed.firstUseAt === "string") setFirstUseAt(parsed.firstUseAt);
-      if (typeof parsed.previousWeight === "number") setPreviousWeight(parsed.previousWeight);
-      if (parsed.completedTrainingPhases) setCompletedTrainingPhases(parsed.completedTrainingPhases);
 
-      try {
-        const recentRaw = localStorage.getItem(RECENT_MEAL_ANALYSES_KEY);
-        if (recentRaw) {
-          const recent = JSON.parse(recentRaw) as RecentMealAnalysis[];
-          setRecentAnalyses(Array.isArray(recent) ? recent.slice(0, MAX_RECENT_MEALS) : []);
-        } else if (parsed.recentAnalyses && parsed.recentAnalyses.length > 0) {
-          setRecentAnalyses(parsed.recentAnalyses.slice(0, MAX_RECENT_MEALS));
-        } else {
-          setRecentAnalyses([]);
+        try {
+          localStorage.removeItem(LEGACY_STORAGE_KEY);
+          localStorage.removeItem(LEGACY_ONBOARDING_COMPLETE_KEY);
+          localStorage.removeItem(LEGACY_ONBOARDING_PROFILE_KEY);
+          localStorage.removeItem(LEGACY_LAST_ACTIVE_DATE_KEY);
+          localStorage.removeItem(LEGACY_RECENT_MEAL_ANALYSES_KEY);
+          localStorage.removeItem(LEGACY_PROFILE_KEY);
+        } catch {
+          // silent fail by requirement
         }
-      } catch {
-        setRecentAnalyses([]);
+        writeState(unifiedState);
       }
 
-      try {
-        const lastActiveDate = localStorage.getItem(LAST_ACTIVE_DATE_KEY);
-        const todayKey = getDateKey();
-        if (lastActiveDate && lastActiveDate !== todayKey) {
-          resetDailyStates();
-        }
-        localStorage.setItem(LAST_ACTIVE_DATE_KEY, todayKey);
-      } catch {
-        // silent fail
-      }
+      const isNewDay = unifiedState.last_active_date !== todayKey;
+      const todayEntriesFromStorage = isNewDay ? [] : readEntriesForDate(todayKey);
+      if (isNewDay) writeEntriesForDate(todayKey, []);
 
-      if (typeof parsed.lastSeenAt === "string") {
-        const elapsed = Date.now() - new Date(parsed.lastSeenAt).getTime();
-        if (elapsed >= 6 * 60 * 60 * 1000) {
-          setShowMotivationNotification(true);
-        }
+      const normalizedState: UnifiedAppState = {
+        ...unifiedState,
+        last_active_date: todayKey,
+        today: summarizeToday(todayEntriesFromStorage, isNewDay ? 0 : unifiedState.today?.water || 0),
+      };
+
+      updateStorageSnapshot(normalizedState);
+      setProfile(toProfileFromUnified(normalizedState.profile));
+      setEntries(todayEntriesFromStorage);
+      setEntriesByDay({ ...readAllEntriesByDay(), [todayKey]: todayEntriesFromStorage });
+      setWaterIntakeMl(normalizedState.today.water || 0);
+      setOnboardingDone(Boolean(normalizedState.onboarding_complete));
+      setFirstUseAt(normalizedState.profile.date_joined || new Date().toISOString());
+      if (typeof normalizedState.previous_weight === "number") setPreviousWeight(normalizedState.previous_weight);
+      if (normalizedState.completed_training_phases) setCompletedTrainingPhases(normalizedState.completed_training_phases);
+      setRecentAnalyses((normalizedState.recent_analyses || []).slice(0, MAX_RECENT_MEALS));
+      setWeightLog(Array.isArray(normalizedState.weight_log) ? normalizedState.weight_log : []);
+      setAchievements(Array.isArray(normalizedState.achievements) ? normalizedState.achievements : []);
+      if (normalizedState.app_language === "pt" || normalizedState.app_language === "en") setAppLanguage(normalizedState.app_language);
+      if (normalizedState.app_theme === "light" || normalizedState.app_theme === "dark") setAppTheme(normalizedState.app_theme);
+
+      if (typeof normalizedState.last_seen_at === "string") {
+        const elapsed = Date.now() - new Date(normalizedState.last_seen_at).getTime();
+        if (elapsed >= 6 * 60 * 60 * 1000) setShowMotivationNotification(true);
       }
-      if (parsed.appLanguage === "pt" || parsed.appLanguage === "en") setAppLanguage(parsed.appLanguage);
-      if (parsed.appTheme === "light" || parsed.appTheme === "dark") setAppTheme(parsed.appTheme);
-      setView(onboardingComplete || parsed.onboardingDone ? "home" : "setup");
+      if (isNewDay) resetDailyStates();
+      setView(normalizedState.onboarding_complete ? "home" : "setup");
+      writeState(normalizedState);
     } catch {
-      try {
-        localStorage.removeItem(STORAGE_KEY);
-      } catch {
-        // silent fail
-      }
+      // silent fail by requirement
     }
-  }, [readStorageState, updateStorageSnapshot]);
+  }, [
+    profile,
+    readAllEntriesByDay,
+    readEntriesForDate,
+    readStorageState,
+    resetDailyStates,
+    updateStorageSnapshot,
+    writeEntriesForDate,
+    writeState,
+  ]);
 
   useEffect(() => {
-    const nextState: PersistedState = {
-      profile,
-      entries,
-      recentAnalyses,
-      waterIntakeMl,
-      onboardingDone,
-      completedTrainingPhases,
-      firstUseAt,
-      previousWeight,
-      appLanguage,
-      appTheme,
+    const todayKey = getDateKey();
+    writeEntriesForDate(todayKey, entries);
+
+    const nextState: UnifiedAppState = {
+      onboarding_complete: onboardingDone,
+      last_active_date: todayKey,
+      profile: toUnifiedProfile(profile, firstUseAt),
+      today: summarizeToday(entries, waterIntakeMl),
+      recent_analyses: recentAnalyses.slice(0, MAX_RECENT_MEALS),
+      weight_log: weightLog,
+      achievements,
+      completed_training_phases: completedTrainingPhases,
+      previous_weight: previousWeight,
+      last_seen_at: storageSnapshotRef.current?.last_seen_at,
+      app_language: appLanguage,
+      app_theme: appTheme,
     };
     updateStorageSnapshot(nextState);
     writeState(nextState);
@@ -739,23 +946,28 @@ function LumeFitApp() {
     previousWeight,
     appLanguage,
     appTheme,
+    achievements,
     updateStorageSnapshot,
+    weightLog,
+    writeEntriesForDate,
+    writeState,
   ]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(RECENT_MEAL_ANALYSES_KEY, JSON.stringify(recentAnalyses.slice(0, MAX_RECENT_MEALS)));
-    } catch {
-      // silent fail
-    }
-  }, [recentAnalyses]);
+    const todayKey = getDateKey();
+    setEntriesByDay((prev) => ({
+      ...prev,
+      [todayKey]: entries,
+    }));
+  }, [entries]);
 
   useEffect(() => {
     const saveLastSeenAt = () => {
       const parsed = storageSnapshotRef.current;
+      if (!parsed) return;
       writeState({
         ...parsed,
-        lastSeenAt: new Date().toISOString(),
+        last_seen_at: new Date().toISOString(),
       });
     };
 
@@ -948,14 +1160,69 @@ function LumeFitApp() {
     [todayEntries],
   );
 
+  const weightHistory = useMemo(
+    () =>
+      weightLog.map((point) => ({
+        week: new Date(point.date).toLocaleDateString(localeTag, { day: "2-digit", month: "2-digit" }),
+        weight: point.weight,
+      })),
+    [localeTag, weightLog],
+  );
+
+  const last7Days = useMemo(() => {
+    const days: string[] = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i -= 1) {
+      const date = new Date(now);
+      date.setDate(now.getDate() - i);
+      days.push(getDateKey(date));
+    }
+    return days;
+  }, []);
+
   const weeklyBars = useMemo(
     () =>
-      localizedShortWeekdays.map((d, index) => {
-        const base = profile.calorieGoal - 160 + index * 40;
-        return { day: d, calories: base };
+      last7Days.map((dateKey, index) => {
+        const dayEntries = entriesByDay[dateKey] || [];
+        const calories = dayEntries.reduce((sum, item) => sum + item.calories, 0);
+        return { day: localizedShortWeekdays[index], calories };
       }),
-    [localizedShortWeekdays, profile.calorieGoal],
+    [entriesByDay, last7Days, localizedShortWeekdays],
   );
+
+  const totalLoggedCalories = useMemo(
+    () => Object.values(entriesByDay).flat().reduce((sum, item) => sum + item.calories, 0),
+    [entriesByDay],
+  );
+
+  const weeklyAverage = useMemo(
+    () => Math.round(weeklyBars.reduce((sum, day) => sum + day.calories, 0) / Math.max(weeklyBars.length, 1)),
+    [weeklyBars],
+  );
+
+  const streakDays = useMemo(() => {
+    let streak = 0;
+    const cursor = new Date();
+    while (true) {
+      const key = getDateKey(cursor);
+      const hasData = (entriesByDay[key] || []).length > 0;
+      if (!hasData) break;
+      streak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return streak;
+  }, [entriesByDay]);
+
+  const unlockedAchievements = useMemo(() => {
+    const next: string[] = [];
+    if (Object.keys(entriesByDay).some((day) => (entriesByDay[day] || []).length > 0)) {
+      next.push("Primeiro registo concluído 🌟");
+    }
+    if (streakDays >= 7) next.push("7 dias consecutivos 🔥");
+    if (weeklyBars.some((day) => day.calories > 0)) next.push("Semana ativa 💚");
+    if (waterIntakeMl > 0) next.push("Bebeu água hoje 💧");
+    return next;
+  }, [entriesByDay, streakDays, waterIntakeMl, weeklyBars]);
 
   const currentTimestamp = new Date().toLocaleTimeString(localeTag, {
     hour: "2-digit",
@@ -1066,14 +1333,17 @@ function LumeFitApp() {
 
       try {
         safeList = [baseAnalysis, ...(Array.isArray(recentAnalyses) ? recentAnalyses : [])].slice(0, MAX_RECENT_MEALS);
-        localStorage.setItem(RECENT_MEAL_ANALYSES_KEY, JSON.stringify(safeList));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...(storageSnapshotRef.current || {}), recent_analyses: safeList }));
       } catch (error) {
         const isQuota = error instanceof DOMException && error.name === "QuotaExceededError";
         if (isQuota) {
           const withoutImage = buildRecentAnalysis(activeResult, kcal, null);
           try {
             safeList = [withoutImage, ...(Array.isArray(recentAnalyses) ? recentAnalyses : [])].slice(0, MAX_RECENT_MEALS);
-            localStorage.setItem(RECENT_MEAL_ANALYSES_KEY, JSON.stringify(safeList));
+            localStorage.setItem(
+              STORAGE_KEY,
+              JSON.stringify({ ...(storageSnapshotRef.current || {}), recent_analyses: safeList }),
+            );
           } catch {
             safeList = [withoutImage];
           }
@@ -1630,26 +1900,6 @@ function LumeFitApp() {
     }));
     setWaterIntakeMl(0);
     setOnboardingDone(true);
-    try {
-      localStorage.setItem(ONBOARDING_COMPLETE_KEY, "true");
-      localStorage.setItem(
-        ONBOARDING_PROFILE_KEY,
-        JSON.stringify({
-          name: finalizedProfile.name,
-          age: finalizedProfile.age,
-          city: finalizedProfile.city,
-          weight: finalizedProfile.weight,
-          height: finalizedProfile.height,
-          target_weight: finalizedProfile.targetWeight,
-          goal: finalizedProfile.weeklyGoal,
-          activity_level: finalizedProfile.activityLevel,
-          daily_calorie_goal: finalizedProfile.calorieGoal,
-          date_joined: firstUseAt,
-        }),
-      );
-    } catch {
-      // silent fail
-    }
     setShowPlanPresentation(false);
     setToastMessage(appLanguage === "en" ? "✅ Goals applied successfully." : "✅ Metas aplicadas com sucesso.");
     setShowToast(true);
@@ -1719,6 +1969,7 @@ function LumeFitApp() {
               <button
                 type="button"
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-glass-border bg-glass"
+                onClick={showComingSoonToast}
               >
                 ✕
               </button>
@@ -2453,41 +2704,44 @@ function LumeFitApp() {
             <>
               <div className="glass-card rounded-xl p-4">
                 <h2 className="text-lg font-semibold">Evolução do peso</h2>
-                <div className="mt-4 space-y-2">
-                  {weightHistory.map((point) => {
-                    const min = Math.min(...weightHistory.map((item) => item.weight));
-                    const max = Math.max(...weightHistory.map((item) => item.weight));
-                    const pct = ((point.weight - min) / Math.max(max - min, 1)) * 100;
+                {weightHistory.length === 0 ? (
+                  <p className="mt-4 text-sm text-muted-foreground">Ainda sem registos de peso — adiciona o teu primeiro! 🌿</p>
+                ) : (
+                  <div className="mt-4 space-y-2">
+                    {weightHistory.map((point) => {
+                      const min = Math.min(...weightHistory.map((item) => item.weight));
+                      const max = Math.max(...weightHistory.map((item) => item.weight));
+                      const pct = ((point.weight - min) / Math.max(max - min, 1)) * 100;
 
-                    return (
-                      <div key={point.week} className="grid grid-cols-[56px_1fr_56px] items-center gap-2 text-xs">
-                        <span className="text-muted-foreground">{point.week}</span>
-                        <div className="h-2 overflow-hidden rounded-full bg-brand-accent-1/15">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-brand-accent-1 to-brand-accent-2"
-                            style={{ width: `${Math.max(14, pct)}%` }}
-                          />
+                      return (
+                        <div key={point.week} className="grid grid-cols-[56px_1fr_56px] items-center gap-2 text-xs">
+                          <span className="text-muted-foreground">{point.week}</span>
+                          <div className="h-2 overflow-hidden rounded-full bg-brand-accent-1/15">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-brand-accent-1 to-brand-accent-2"
+                              style={{ width: `${Math.max(14, pct)}%` }}
+                            />
+                          </div>
+                          <span className="text-right font-semibold text-foreground">{point.weight.toFixed(1)}kg</span>
                         </div>
-                        <span className="text-right font-semibold text-foreground">{point.weight.toFixed(1)}kg</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <p className="mt-2 text-sm text-brand-accent-2">Perdeste 2kg! 🎉</p>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="mt-4 grid grid-cols-3 gap-2">
                 <article className="glass-card rounded-xl p-3 text-center">
                   <p className="text-xs text-muted-foreground">Dias seguidos</p>
-                  <p className="text-xl font-bold">7 🔥</p>
+                  <p className="text-xl font-bold">{streakDays > 0 ? `${streakDays} 🔥` : "0"}</p>
                 </article>
                 <article className="glass-card rounded-xl p-3 text-center">
                   <p className="text-xs text-muted-foreground">Semana</p>
-                  <p className="text-xl font-bold">{consumedCalories * 3} kcal</p>
+                  <p className="text-xl font-bold">{weeklyBars.reduce((sum, day) => sum + day.calories, 0)} kcal</p>
                 </article>
                 <article className="glass-card rounded-xl p-3 text-center">
                   <p className="text-xs text-muted-foreground">Média diária</p>
-                  <p className="text-xl font-bold">{Math.round(consumedCalories || 1340)} kcal</p>
+                  <p className="text-xl font-bold">{weeklyAverage} kcal</p>
                 </article>
               </div>
 
@@ -2504,7 +2758,7 @@ function LumeFitApp() {
                         <div className="flex h-28 w-full items-end rounded-lg bg-brand-accent-1/10 p-1">
                           <div
                             className="w-full rounded-md bg-gradient-to-t from-brand-accent-1 to-brand-accent-2"
-                            style={{ height: `${Math.max(22, pct)}%` }}
+                            style={{ height: `${pct}%` }}
                           />
                         </div>
                         <span className="text-[11px] text-muted-foreground">{day.day}</span>
@@ -2515,12 +2769,10 @@ function LumeFitApp() {
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-3">
-                {[
-                  "Primeira semana completa 🌟",
-                  "Perdeu 1kg ✨",
-                  "7 dias consecutivos 🔥",
-                  "Bebeu água hoje 💧",
-                ].map((badge) => (
+                {(unlockedAchievements.length > 0
+                  ? unlockedAchievements
+                  : ["Ainda sem dados — começa a registar hoje! 🌿"]
+                ).map((badge) => (
                   <article
                     key={badge}
                     className="animate-pulse rounded-xl border border-brand-accent-1/40 bg-brand-accent-1/15 p-3 text-sm font-medium"
@@ -2674,8 +2926,9 @@ function LumeFitApp() {
                   onClick={() => {
                     try {
                       localStorage.removeItem(STORAGE_KEY);
-                      localStorage.removeItem(RECENT_MEAL_ANALYSES_KEY);
-                      localStorage.removeItem(LAST_ACTIVE_DATE_KEY);
+                      Object.keys(localStorage)
+                        .filter((key) => isEntriesStorageKey(key))
+                        .forEach((key) => localStorage.removeItem(key));
                     } catch {
                       // silent fail
                     }
