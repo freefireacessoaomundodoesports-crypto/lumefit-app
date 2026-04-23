@@ -855,11 +855,23 @@ function LumeFitApp() {
   const todayQuote = localizedQuoteList[new Date().getDate() % localizedQuoteList.length];
 
   const todayKey = getDateKey();
-  const todayEntries = entries.filter((item) => item.timestamp.startsWith(todayKey));
+  const todayEntries = useMemo(
+    () => entries.filter((item) => item.timestamp.startsWith(todayKey)),
+    [entries, todayKey],
+  );
 
-  const consumedCalories = todayEntries.reduce((sum, item) => sum + item.calories, 0);
-  const remainingCalories = Math.max(profile.calorieGoal - consumedCalories, 0);
-  const caloriePercent = Math.min((consumedCalories / profile.calorieGoal) * 100, 100);
+  const consumedCalories = useMemo(
+    () => todayEntries.reduce((sum, item) => sum + item.calories, 0),
+    [todayEntries],
+  );
+  const remainingCalories = useMemo(
+    () => Math.max(profile.calorieGoal - consumedCalories, 0),
+    [profile.calorieGoal, consumedCalories],
+  );
+  const caloriePercent = useMemo(
+    () => Math.min((consumedCalories / profile.calorieGoal) * 100, 100),
+    [consumedCalories, profile.calorieGoal],
+  );
   const ringGlow =
     caloriePercent < 70
       ? "var(--color-brand-success)"
@@ -867,16 +879,22 @@ function LumeFitApp() {
         ? "var(--color-brand-warning)"
         : "var(--color-brand-danger)";
 
-  const macros = {
-    protein: todayEntries.reduce((sum, item) => sum + (item.protein || 0), 0),
-    carbs: todayEntries.reduce((sum, item) => sum + (item.carbs || 0), 0),
-    fat: todayEntries.reduce((sum, item) => sum + (item.fat || 0), 0),
-  };
-  const macroProgress = {
-    protein: Math.min((macros.protein / Math.max(profile.macroGoals.protein, 1)) * 100, 100),
-    carbs: Math.min((macros.carbs / Math.max(profile.macroGoals.carbs, 1)) * 100, 100),
-    fat: Math.min((macros.fat / Math.max(profile.macroGoals.fat, 1)) * 100, 100),
-  };
+  const macros = useMemo(
+    () => ({
+      protein: todayEntries.reduce((sum, item) => sum + (item.protein || 0), 0),
+      carbs: todayEntries.reduce((sum, item) => sum + (item.carbs || 0), 0),
+      fat: todayEntries.reduce((sum, item) => sum + (item.fat || 0), 0),
+    }),
+    [todayEntries],
+  );
+  const macroProgress = useMemo(
+    () => ({
+      protein: Math.min((macros.protein / Math.max(profile.macroGoals.protein, 1)) * 100, 100),
+      carbs: Math.min((macros.carbs / Math.max(profile.macroGoals.carbs, 1)) * 100, 100),
+      fat: Math.min((macros.fat / Math.max(profile.macroGoals.fat, 1)) * 100, 100),
+    }),
+    [macros, profile.macroGoals],
+  );
 
   const hydrationPercent = Math.min(100, (waterIntakeMl / Math.max(profile.hydrationGoalMl, 1)) * 100);
   const hydrationGoalLiters = (profile.hydrationGoalMl / 1000).toFixed(1);
