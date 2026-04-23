@@ -267,6 +267,9 @@ const uiText = {
     onboardingCityPlaceholder: "Escreve a tua cidade",
     onboardingNameLabel: "Nome",
     onboardingNamePlaceholder: "Escreve o teu nome",
+    onboardingCurrentWeightLabel: "Peso atual (kg)",
+    onboardingTargetWeightLabel: "Peso desejado (kg)",
+    onboardingHeightLabel: "Altura (cm)",
   },
   en: {
     appName: "LUMEfit",
@@ -302,6 +305,9 @@ const uiText = {
     onboardingCityPlaceholder: "Enter your city",
     onboardingNameLabel: "Name",
     onboardingNamePlaceholder: "Enter your name",
+    onboardingCurrentWeightLabel: "Current weight (kg)",
+    onboardingTargetWeightLabel: "Target weight (kg)",
+    onboardingHeightLabel: "Height (cm)",
   },
 } as const;
 
@@ -1585,7 +1591,7 @@ function LumeFitApp() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">Peso (kg)</p>
+                  <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">{t.onboardingCurrentWeightLabel}</p>
                   <Input
                     type="number"
                     value={profile.weight}
@@ -1594,7 +1600,7 @@ function LumeFitApp() {
                   />
                 </div>
                 <div>
-                  <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">Altura (cm)</p>
+                  <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">{t.onboardingHeightLabel}</p>
                   <Input
                     type="number"
                     value={profile.height}
@@ -1602,6 +1608,21 @@ function LumeFitApp() {
                     className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-2xl font-semibold"
                   />
                 </div>
+              </div>
+
+              <div>
+                <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">{t.onboardingTargetWeightLabel}</p>
+                <Input
+                  type="number"
+                  value={profile.targetWeight}
+                  onChange={(e) =>
+                    setProfile((p) => ({
+                      ...p,
+                      targetWeight: Number(e.target.value) || 0,
+                    }))
+                  }
+                  className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-2xl font-semibold"
+                />
               </div>
 
               <div>
