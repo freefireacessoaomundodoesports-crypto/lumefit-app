@@ -1110,7 +1110,7 @@ function LumeFitApp() {
       : `A minha evolução de peso no LUMEfit 💚\n${profile.name || "Utilizadora"}\nPeso anterior: ${previousWeight.toFixed(1)}kg\nPeso atual: ${profile.weight.toFixed(1)}kg\nPeso desejado: ${profile.targetWeight.toFixed(1)}kg`;
   const activeShareSummary = shareMode === "weight" ? weightShareSummary : shareSummary;
 
-  const handleGenerateShareImage = async () => {
+  const handleGenerateShareImage = useCallback(async () => {
     setIsGeneratingShareImage(true);
     try {
       const isWeightMode = shareMode === "weight";
@@ -1338,7 +1338,7 @@ function LumeFitApp() {
         setShareImageUrl(canvas.toDataURL("image/png"));
         setToastMessage(t.toastImageGenerated);
         setShowToast(true);
-        setTimeout(() => setShowToast(false), 1800);
+        setManagedTimeout(() => setShowToast(false), 1800);
         return;
       }
 
@@ -1495,25 +1495,40 @@ function LumeFitApp() {
       setShareImageUrl(canvas.toDataURL("image/png"));
       setToastMessage(t.toastImageGenerated);
       setShowToast(true);
-      setTimeout(() => setShowToast(false), 1800);
+      setManagedTimeout(() => setShowToast(false), 1800);
     } catch {
       setToastMessage(t.toastImageFailed);
       setShowToast(true);
-      setTimeout(() => setShowToast(false), 2200);
+      setManagedTimeout(() => setShowToast(false), 2200);
     } finally {
       setIsGeneratingShareImage(false);
     }
-  };
+  }, [
+    activeShareSummary,
+    appLanguage,
+    consumedCalories,
+    macroProgress,
+    macros,
+    portionMultiplier,
+    previousWeight,
+    profile,
+    setManagedTimeout,
+    shareMode,
+    t.toastImageFailed,
+    t.toastImageGenerated,
+    waterIntakeMl,
+    weightHistory,
+  ]);
 
-  const handleDownloadShareImage = () => {
+  const handleDownloadShareImage = useCallback(() => {
     if (!shareImageUrl) return;
     const link = document.createElement("a");
     link.href = shareImageUrl;
     link.download = `${shareMode === "weight" ? (appLanguage === "en" ? "lumefit-weight" : "lumefit-peso") : appLanguage === "en" ? "lumefit-share" : "lumefit-partilha"}-${new Date().toISOString().slice(0, 10)}.png`;
     link.click();
-  };
+  }, [appLanguage, shareImageUrl, shareMode]);
 
-  const handleNativeShare = async () => {
+  const handleNativeShare = useCallback(async () => {
     if (!shareImageUrl || !navigator.share) return;
     const response = await fetch(shareImageUrl);
     const blob = await response.blob();
@@ -1535,9 +1550,9 @@ function LumeFitApp() {
       text: activeShareSummary,
       files: [file],
     });
-  };
+  }, [activeShareSummary, appLanguage, shareImageUrl, shareMode, t.appName]);
 
-  const handleShareChannel = async (channel: "whatsapp" | "telegram" | "tiktok") => {
+  const handleShareChannel = useCallback(async (channel: "whatsapp" | "telegram" | "tiktok") => {
     if (shareImageUrl) {
       try {
         await handleNativeShare();
@@ -1554,9 +1569,9 @@ function LumeFitApp() {
       tiktok: "https://www.tiktok.com/upload",
     };
     window.open(urlMap[channel], "_blank", "noopener,noreferrer");
-  };
+  }, [activeShareSummary, handleNativeShare, shareImageUrl]);
 
-  const applyGeneratedPlan = () => {
+  const applyGeneratedPlan = useCallback(() => {
     if (!generatedPlan) return;
     const finalizedProfile = {
       ...profile,
@@ -1599,8 +1614,16 @@ function LumeFitApp() {
     setToastMessage(appLanguage === "en" ? "✅ Goals applied successfully." : "✅ Metas aplicadas com sucesso.");
     setShowToast(true);
     setView("home");
-    setTimeout(() => setShowToast(false), 2400);
-  };
+    setManagedTimeout(() => setShowToast(false), 2400);
+  }, [
+    appLanguage,
+    firstUseAt,
+    generatedPlan,
+    onboardingActivityMap,
+    profile,
+    setManagedTimeout,
+    setupActivity,
+  ]);
 
   const currentMealTitle = localizedMeals[selectedMeal];
 
