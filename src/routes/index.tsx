@@ -515,12 +515,9 @@ function calcMacroGoals(calorieGoal: number) {
 }
 
 function generatePlan(profile: Profile): GeneratedPlan {
-  const calorieGoal = calcGoal(
-    profile.weight,
-    profile.height,
-    profile.age,
-    profile.activityLevel,
-    profile.weeklyGoal,
+  const calorieGoal = Math.max(
+    1200,
+    profile.calorieGoal || calcGoal(profile.weight, profile.height, profile.age, profile.activityLevel, profile.weeklyGoal),
   );
   const hydrationGoalMl = calcHydrationGoal(profile.weight, profile.activityLevel);
   const macroGoals = calcMacroGoals(calorieGoal);
@@ -641,6 +638,12 @@ function LumeFitApp() {
   const shareFetchAbortRef = useRef<AbortController | null>(null);
   const saveMealAbortRef = useRef<AbortController | null>(null);
   const [isViewingSavedAnalysis, setIsViewingSavedAnalysis] = useState(false);
+
+  const showComingSoonToast = useCallback(() => {
+    setToastMessage("Em breve disponível! ✨");
+    setShowToast(true);
+    setManagedTimeout(() => setShowToast(false), 1800);
+  }, [setManagedTimeout]);
 
   const writeState = useCallback((next: UnifiedAppState) => {
     try {
