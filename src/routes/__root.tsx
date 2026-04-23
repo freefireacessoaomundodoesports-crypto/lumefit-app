@@ -48,6 +48,11 @@ export const Route = createRootRoute({
         name: "twitter:description",
         content: "Regista refeições, controla calorias e segue o teu progresso diário.",
       },
+      { name: "description", content: "LUMEfit helps Mozambican women track calories and lose weight at home with a visually stunning interface." },
+      { property: "og:description", content: "LUMEfit helps Mozambican women track calories and lose weight at home with a visually stunning interface." },
+      { name: "twitter:description", content: "LUMEfit helps Mozambican women track calories and lose weight at home with a visually stunning interface." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/07cab7d9-d3e1-4a48-86ef-f87412271559/id-preview-1b714111--9f11a5fa-af36-4390-b060-e462fb2bfcaf.lovable.app-1776934270427.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/07cab7d9-d3e1-4a48-86ef-f87412271559/id-preview-1b714111--9f11a5fa-af36-4390-b060-e462fb2bfcaf.lovable.app-1776934270427.png" },
     ],
     links: [
       {
