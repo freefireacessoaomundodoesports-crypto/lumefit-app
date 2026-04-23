@@ -876,11 +876,17 @@ function LumeFitApp() {
   const confirmAddToDiary = () => {
     if (!activeResult) return;
     const kcal = Math.round(activeResult.estimatedKcal * portionMultiplier);
+    const protein = Math.round(activeResult.protein * portionMultiplier);
+    const carbs = Math.round(activeResult.carbs * portionMultiplier);
+    const fat = Math.round(activeResult.fat * portionMultiplier);
     const nextEntry: MealEntry = {
       id: crypto.randomUUID(),
       meal: selectedMeal,
       foodName: activeResult.mealName,
       calories: kcal,
+      protein,
+      carbs,
+      fat,
       quantity: portionMultiplier,
       timestamp: new Date().toISOString(),
       photo: previewImage || undefined,
@@ -888,17 +894,47 @@ function LumeFitApp() {
 
     setIsSavingMeal(true);
     setEntries((prev) => [nextEntry, ...prev]);
-    setRecentAnalyses((prev) => {
-      const stamp = `${appLanguage === "en" ? "Today" : "Hoje"}, ${currentTimestamp}`;
-      const first: RecentMealAnalysis = {
-        id: crypto.randomUUID(),
-        name: activeResult.mealName,
-        image: previewImage || makePlaceholder(activeResult.mealName),
-        resultId: activeResult.id,
-        timestampLabel: stamp,
-      };
-      return [first, ...prev].slice(0, 5);
-    });
+    void (async () => {
+      let compressedImage: string | null = null;
+
+      if (previewImage) {
+        try {
+          const compressed = await compressImageForStorage(previewImage);
+          if (compressed && compressed.length < MAX_RECENT_IMAGE_LENGTH) {
+            compressedImage = compressed;
+          }
+        } catch {
+          compressedImage = null;
+        }
+      }
+
+      const baseAnalysis = buildRecentAnalysis(activeResult, kcal, compressedImage);
+      let safeList: RecentMealAnalysis[] = [];
+
+      try {
+        const existingRaw = localStorage.getItem(RECENT_MEAL_ANALYSES_KEY);
+        const existing = existingRaw ? (JSON.parse(existingRaw) as RecentMealAnalysis[]) : [];
+        safeList = [baseAnalysis, ...(Array.isArray(existing) ? existing : [])].slice(0, MAX_RECENT_MEALS);
+        localStorage.setItem(RECENT_MEAL_ANALYSES_KEY, JSON.stringify(safeList));
+      } catch (error) {
+        const isQuota = error instanceof DOMException && error.name === "QuotaExceededError";
+        if (isQuota) {
+          const withoutImage = buildRecentAnalysis(activeResult, kcal, null);
+          try {
+            const existingRaw = localStorage.getItem(RECENT_MEAL_ANALYSES_KEY);
+            const existing = existingRaw ? (JSON.parse(existingRaw) as RecentMealAnalysis[]) : [];
+            safeList = [withoutImage, ...(Array.isArray(existing) ? existing : [])].slice(0, MAX_RECENT_MEALS);
+            localStorage.setItem(RECENT_MEAL_ANALYSES_KEY, JSON.stringify(safeList));
+          } catch {
+            safeList = [withoutImage];
+          }
+        } else {
+          safeList = [buildRecentAnalysis(activeResult, kcal, null)];
+        }
+      }
+
+      setRecentAnalyses(safeList.slice(0, MAX_RECENT_MEALS));
+    })();
 
     const selectedMealName = localizedMeals[selectedMeal].replace(/^[^ ]+ /, "").toLowerCase();
     setToastMessage(
@@ -913,6 +949,7 @@ function LumeFitApp() {
     setTimeout(() => {
       setIsSavingMeal(false);
       setMealStage("camera");
+      setIsViewingSavedAnalysis(false);
       setView("home");
     }, 1600);
 
