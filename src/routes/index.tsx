@@ -550,7 +550,6 @@ function LumeFitApp() {
   const previewObjectUrlRef = useRef<string | null>(null);
   const timeoutIdsRef = useRef<number[]>([]);
   const storageSnapshotRef = useRef<PersistedState>({});
-  const [storageSnapshot, setStorageSnapshot] = useState<PersistedState>({});
   const [isViewingSavedAnalysis, setIsViewingSavedAnalysis] = useState(false);
 
   const writeState = (next: PersistedState) => {
@@ -572,7 +571,6 @@ function LumeFitApp() {
 
   const updateStorageSnapshot = useCallback((next: PersistedState) => {
     storageSnapshotRef.current = next;
-    setStorageSnapshot(next);
   }, []);
 
   const setManagedTimeout = useCallback((callback: () => void, delay: number) => {
