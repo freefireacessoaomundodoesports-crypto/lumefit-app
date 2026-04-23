@@ -547,16 +547,11 @@ function LumeFitApp() {
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const previewObjectUrlRef = useRef<string | null>(null);
+  const timeoutIdsRef = useRef<number[]>([]);
+  const storageSnapshotRef = useRef<PersistedState>({});
+  const [storageSnapshot, setStorageSnapshot] = useState<PersistedState>({});
   const [isViewingSavedAnalysis, setIsViewingSavedAnalysis] = useState(false);
-
-  const readState = () => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as PersistedState) : {};
-    } catch {
-      return {};
-    }
-  };
 
   const writeState = (next: PersistedState) => {
     try {
@@ -565,6 +560,15 @@ function LumeFitApp() {
       // silent fail by requirement
     }
   };
+
+  const setManagedTimeout = useCallback((callback: () => void, delay: number) => {
+    const timeoutId = window.setTimeout(() => {
+      timeoutIdsRef.current = timeoutIdsRef.current.filter((id) => id !== timeoutId);
+      callback();
+    }, delay);
+    timeoutIdsRef.current.push(timeoutId);
+    return timeoutId;
+  }, []);
 
   const buildRecentAnalysis = (result: MockMealResult, kcal: number, image: string | null): RecentMealAnalysis => ({
     id: Date.now().toString(),
