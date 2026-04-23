@@ -1969,6 +1969,7 @@ function LumeFitApp() {
               <button
                 type="button"
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-glass-border bg-glass"
+                onClick={showComingSoonToast}
               >
                 ✕
               </button>
@@ -2703,41 +2704,44 @@ function LumeFitApp() {
             <>
               <div className="glass-card rounded-xl p-4">
                 <h2 className="text-lg font-semibold">Evolução do peso</h2>
-                <div className="mt-4 space-y-2">
-                  {weightHistory.map((point) => {
-                    const min = Math.min(...weightHistory.map((item) => item.weight));
-                    const max = Math.max(...weightHistory.map((item) => item.weight));
-                    const pct = ((point.weight - min) / Math.max(max - min, 1)) * 100;
+                {weightHistory.length === 0 ? (
+                  <p className="mt-4 text-sm text-muted-foreground">Ainda sem registos de peso — adiciona o teu primeiro! 🌿</p>
+                ) : (
+                  <div className="mt-4 space-y-2">
+                    {weightHistory.map((point) => {
+                      const min = Math.min(...weightHistory.map((item) => item.weight));
+                      const max = Math.max(...weightHistory.map((item) => item.weight));
+                      const pct = ((point.weight - min) / Math.max(max - min, 1)) * 100;
 
-                    return (
-                      <div key={point.week} className="grid grid-cols-[56px_1fr_56px] items-center gap-2 text-xs">
-                        <span className="text-muted-foreground">{point.week}</span>
-                        <div className="h-2 overflow-hidden rounded-full bg-brand-accent-1/15">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-brand-accent-1 to-brand-accent-2"
-                            style={{ width: `${Math.max(14, pct)}%` }}
-                          />
+                      return (
+                        <div key={point.week} className="grid grid-cols-[56px_1fr_56px] items-center gap-2 text-xs">
+                          <span className="text-muted-foreground">{point.week}</span>
+                          <div className="h-2 overflow-hidden rounded-full bg-brand-accent-1/15">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-brand-accent-1 to-brand-accent-2"
+                              style={{ width: `${Math.max(14, pct)}%` }}
+                            />
+                          </div>
+                          <span className="text-right font-semibold text-foreground">{point.weight.toFixed(1)}kg</span>
                         </div>
-                        <span className="text-right font-semibold text-foreground">{point.weight.toFixed(1)}kg</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <p className="mt-2 text-sm text-brand-accent-2">Perdeste 2kg! 🎉</p>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="mt-4 grid grid-cols-3 gap-2">
                 <article className="glass-card rounded-xl p-3 text-center">
                   <p className="text-xs text-muted-foreground">Dias seguidos</p>
-                  <p className="text-xl font-bold">7 🔥</p>
+                  <p className="text-xl font-bold">{streakDays > 0 ? `${streakDays} 🔥` : "0"}</p>
                 </article>
                 <article className="glass-card rounded-xl p-3 text-center">
                   <p className="text-xs text-muted-foreground">Semana</p>
-                  <p className="text-xl font-bold">{consumedCalories * 3} kcal</p>
+                  <p className="text-xl font-bold">{weeklyBars.reduce((sum, day) => sum + day.calories, 0)} kcal</p>
                 </article>
                 <article className="glass-card rounded-xl p-3 text-center">
                   <p className="text-xs text-muted-foreground">Média diária</p>
-                  <p className="text-xl font-bold">{Math.round(consumedCalories || 1340)} kcal</p>
+                  <p className="text-xl font-bold">{weeklyAverage} kcal</p>
                 </article>
               </div>
 
@@ -2754,7 +2758,7 @@ function LumeFitApp() {
                         <div className="flex h-28 w-full items-end rounded-lg bg-brand-accent-1/10 p-1">
                           <div
                             className="w-full rounded-md bg-gradient-to-t from-brand-accent-1 to-brand-accent-2"
-                            style={{ height: `${Math.max(22, pct)}%` }}
+                            style={{ height: `${pct}%` }}
                           />
                         </div>
                         <span className="text-[11px] text-muted-foreground">{day.day}</span>
@@ -2765,12 +2769,10 @@ function LumeFitApp() {
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-3">
-                {[
-                  "Primeira semana completa 🌟",
-                  "Perdeu 1kg ✨",
-                  "7 dias consecutivos 🔥",
-                  "Bebeu água hoje 💧",
-                ].map((badge) => (
+                {(unlockedAchievements.length > 0
+                  ? unlockedAchievements
+                  : ["Ainda sem dados — começa a registar hoje! 🌿"]
+                ).map((badge) => (
                   <article
                     key={badge}
                     className="animate-pulse rounded-xl border border-brand-accent-1/40 bg-brand-accent-1/15 p-3 text-sm font-medium"
