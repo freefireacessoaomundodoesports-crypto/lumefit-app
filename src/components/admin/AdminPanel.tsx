@@ -393,7 +393,8 @@ export function AdminPanel({ onClose, setToastMessage, setShowToast, setManagedT
               <div className="space-y-3">
                 <h4 className="text-sm font-bold px-1 text-orange-500">A Expirar em Breve (próximos 7 dias)</h4>
                 {adminUsers.filter(u => u.status === "ativo" && u.expiryDate).map(user => {
-                  const days = Math.ceil((new Date(user.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                  const expiryTimestamp = user.expiryDate ? new Date(user.expiryDate).getTime() : 0;
+                  const days = Math.ceil((expiryTimestamp - Date.now()) / (1000 * 60 * 60 * 24));
                   if (days > 7 || days < 0) return null;
                   return (
                     <div key={user.id} className="glass-card p-4 rounded-2xl flex items-center justify-between">
@@ -404,7 +405,9 @@ export function AdminPanel({ onClose, setToastMessage, setShowToast, setManagedT
                         </p>
                       </div>
                       <Button size="sm" className="h-8 text-xs bg-brand-accent-2" onClick={async () => {
-                         const newExpiry = new Date(new Date(user.expiryDate).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+                         if (!user.expiryDate) return;
+                         const currentExpiry = new Date(user.expiryDate).getTime();
+                         const newExpiry = new Date(currentExpiry + 30 * 24 * 60 * 60 * 1000).toISOString();
                          
                          const { error } = await supabase.from('profiles').update({
                            status: "ativo",

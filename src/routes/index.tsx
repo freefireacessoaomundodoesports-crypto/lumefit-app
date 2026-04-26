@@ -156,6 +156,7 @@ type GeneratedPlan = {
     fat: number;
   };
   summary: string;
+  motivationalTip?: string;
 };
 
 type MealEntry = {
