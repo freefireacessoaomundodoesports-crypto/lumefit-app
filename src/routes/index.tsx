@@ -1,4 +1,4 @@
-import {
+﻿import {
   memo,
   useCallback,
   useEffect,
@@ -57,8 +57,8 @@ import {
   type MealType,
   type MockMealResult,
 } from "@/lib/lumefit-data";
-import shareLogo from "@/assets/share-logo.png";
-import shareFitnessStyle from "@/assets/share-fitness-style.jfif";
+const shareLogo = "/lume-logo.png";
+const shareFitnessStyle = "/lume-logo.png";
 
 export const Route = createFileRoute("/")({
   component: LumeFitApp,
@@ -210,37 +210,37 @@ const MAX_RECENT_IMAGE_LENGTH = 150000;
 const trainingPhases = [
   {
     key: "primeiro-mes",
-    title: "PRIMEIRO MÊS",
-    instruction: "Repita uma vez o vídeo e treine de segunda, quarta, sexta, sábado",
+    title: "PRIMEIRO MÃŠS",
+    instruction: "Repita uma vez o vÃ­deo e treine de segunda, quarta, sexta, sÃ¡bado",
   },
   {
     key: "segundo-mes",
-    title: "SEGUNDO MÊS",
-    instruction: "Repita 3 vezes o vídeo e treine de segunda, quarta, sexta, sábado",
+    title: "SEGUNDO MÃŠS",
+    instruction: "Repita 3 vezes o vÃ­deo e treine de segunda, quarta, sexta, sÃ¡bado",
   },
   {
     key: "terceiro-mes",
-    title: "TERCEIRO MÊS",
-    instruction: "Repita 4 vezes o vídeo e treine de segunda, quarta, sexta, sábado",
+    title: "TERCEIRO MÃŠS",
+    instruction: "Repita 4 vezes o vÃ­deo e treine de segunda, quarta, sexta, sÃ¡bado",
   },
 ] as const;
 
 const ANALYSIS_MESSAGES: Record<AppLanguage, string[]> = {
   pt: [
-    "🔍 A identificar os alimentos...",
-    "🌿 A reconhecer ingredientes locais...",
-    "⚖️ A estimar as porções...",
-    "🔥 A calcular as calorias...",
-    "💪 A analisar macronutrientes...",
-    "✨ A preparar o relatório...",
+    "ðŸ” A identificar os alimentos...",
+    "ðŸŒ¿ A reconhecer ingredientes locais...",
+    "âš–ï¸ A estimar as porÃ§Ãµes...",
+    "ðŸ”¥ A calcular as calorias...",
+    "ðŸ’ª A analisar macronutrientes...",
+    "âœ¨ A preparar o relatÃ³rio...",
   ],
   en: [
-    "🔍 Identifying foods...",
-    "🌿 Recognizing ingredients...",
-    "⚖️ Estimating portions...",
-    "🔥 Calculating calories...",
-    "💪 Analyzing macros...",
-    "✨ Preparing your report...",
+    "ðŸ” Identifying foods...",
+    "ðŸŒ¿ Recognizing ingredients...",
+    "âš–ï¸ Estimating portions...",
+    "ðŸ”¥ Calculating calories...",
+    "ðŸ’ª Analyzing macros...",
+    "âœ¨ Preparing your report...",
   ],
 };
 
@@ -267,15 +267,15 @@ const confettiOffsets = [
 const localizedMealLabels: Record<AppLanguage, Record<MealType, string>> = {
   pt: mealLabels,
   en: {
-    "pequeno-almoco": "🌅 Breakfast",
-    almoco: "☀️ Lunch",
-    jantar: "🌙 Dinner",
-    lanches: "🍎 Snacks",
+    "pequeno-almoco": "ðŸŒ… Breakfast",
+    almoco: "â˜€ï¸ Lunch",
+    jantar: "ðŸŒ™ Dinner",
+    lanches: "ðŸŽ Snacks",
   },
 };
 
 const localizedWeekdays: Record<AppLanguage, string[]> = {
-  pt: ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"],
+  pt: ["Seg", "Ter", "Qua", "Qui", "Sex", "SÃ¡b", "Dom"],
   en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
 };
 
@@ -284,7 +284,7 @@ const localizedQuotes: Record<AppLanguage, string[]> = {
   en: [
     "Every meal is a new chance to take care of yourself.",
     "Small steps today, big results tomorrow.",
-    "You can do this — consistency is your superpower.",
+    "You can do this â€” consistency is your superpower.",
     "Lighter, stronger, more confident.",
   ],
 };
@@ -292,10 +292,10 @@ const localizedQuotes: Record<AppLanguage, string[]> = {
 const localizedTips: Record<AppLanguage, string[]> = {
   pt: tips,
   en: [
-    "Cook with less oil — use 1 spoon instead of 3.",
-    "Drink 8 glasses of water daily 💧",
-    "Eat slowly — your brain needs 20 min to feel full.",
-    "Matapa is nutritious — watch peanut portion size.",
+    "Cook with less oil â€” use 1 spoon instead of 3.",
+    "Drink 8 glasses of water daily ðŸ’§",
+    "Eat slowly â€” your brain needs 20 min to feel full.",
+    "Matapa is nutritious â€” watch peanut portion size.",
   ],
 };
 
@@ -303,30 +303,30 @@ const uiText = {
   pt: {
     appName: "LUMEfit",
     menuShare: "Compartilhar",
-    menuSettings: "Configurações",
+    menuSettings: "ConfiguraÃ§Ãµes",
     menuOpenAria: "Abrir menu",
-    settingsTitle: "Configurações",
+    settingsTitle: "ConfiguraÃ§Ãµes",
     settingsTheme: "Tema",
     settingsThemeLight: "Modo claro",
     settingsThemeDark: "Modo escuro",
     settingsLanguage: "Idioma",
-    languagePortuguese: "Português",
-    languageEnglish: "Inglês",
+    languagePortuguese: "PortuguÃªs",
+    languageEnglish: "InglÃªs",
     close: "Fechar",
     greeting: "Bom dia",
-    champion: "Campeã",
+    champion: "CampeÃ£",
     shareGenerated: "Gerar imagem para partilha",
     shareGenerating: "A gerar imagem...",
     shareProgress: "Compartilhar progresso",
     shareHint:
-      "A imagem vai incluir teu nome, metas, consumo de hoje, macros, hidratação e identidade visual LUMEfit.",
-    toastImageGenerated: "Imagem gerada com sucesso ✨",
-    toastImageFailed: "Não foi possível gerar a imagem agora.",
+      "A imagem vai incluir teu nome, metas, consumo de hoje, macros, hidrataÃ§Ã£o e identidade visual LUMEfit.",
+    toastImageGenerated: "Imagem gerada com sucesso âœ¨",
+    toastImageFailed: "NÃ£o foi possÃ­vel gerar a imagem agora.",
     notificationTitle: "Lembrete LUMEfit",
-    notificationBody: "Guerreira, não se esqueça que tens um sonho para alcançar ✨",
+    notificationBody: "Guerreira, nÃ£o se esqueÃ§a que tens um sonho para alcanÃ§ar âœ¨",
     understood: "Entendi",
     navHome: "Home",
-    navMeals: "Refeições",
+    navMeals: "RefeiÃ§Ãµes",
     navProgress: "Progresso",
     navWorkouts: "Treinos",
     navProfile: "Perfil",
@@ -338,70 +338,70 @@ const uiText = {
     onboardingTargetWeightLabel: "Peso desejado (kg)",
     onboardingHeightLabel: "Altura (cm)",
     todayCalories: "Calorias de hoje",
-    goalCalorie: "Meta calórica",
-    goalHydration: "Hidratação diária",
-    goalWater: "água/dia",
-    protein: "Proteína",
+    goalCalorie: "Meta calÃ³rica",
+    goalHydration: "HidrataÃ§Ã£o diÃ¡ria",
+    goalWater: "Ã¡gua/dia",
+    protein: "ProteÃ­na",
     carbs: "Carboidrato",
     fat: "Gordura",
     applyGoals: "Aplicar metas",
     analyzingFood: "Analisar Comida",
-    mealHistory: "Histórico de Refeições",
-    weightHistory: "Histórico de Peso",
+    mealHistory: "HistÃ³rico de RefeiÃ§Ãµes",
+    weightHistory: "HistÃ³rico de Peso",
     currentWeight: "Peso atual",
     weightGoal: "Meta de peso",
     addWeight: "Registrar peso",
     achievements: "Conquistas",
-    motivation: "Motivação",
+    motivation: "MotivaÃ§Ã£o",
     calories: "Calorias",
     grams: "g",
     liters: "L",
     remaining: "restantes",
-    water: "Água",
+    water: "Ãgua",
     back: "Voltar",
     save: "Salvar",
     edit: "Editar",
     cancel: "Cancelar",
     addIn: "Adicionar em",
-    analyzeMeal: "Analisar Refeição",
-    takePhotoHint: "Tira uma foto do teu prato e a IA faz o resto ✨",
+    analyzeMeal: "Analisar RefeiÃ§Ã£o",
+    takePhotoHint: "Tira uma foto do teu prato e a IA faz o resto âœ¨",
     takePhoto: "Tirar Foto",
     loadGallery: "Carregar da Galeria",
-    recentAnalyses: "Análises Recentes",
-    last5: "Últimas 5",
-    previewMeal: "Pré-visualização da refeição",
+    recentAnalyses: "AnÃ¡lises Recentes",
+    last5: "Ãšltimas 5",
+    previewMeal: "PrÃ©-visualizaÃ§Ã£o da refeiÃ§Ã£o",
     analyzeThis: "Analisar este prato",
     chooseAnother: "Escolher outra foto",
-    accuracy: "de precisão",
+    accuracy: "de precisÃ£o",
     totalEstimate: "Estimativa total",
     estimatedKcal: "kcal estimadas",
-    basedOnPortions: "Baseado nas porções visíveis no prato",
+    basedOnPortions: "Baseado nas porÃ§Ãµes visÃ­veis no prato",
     thisPlateIs: "Este prato =",
-    ofDailyGoal: "da tua meta diária",
-    proteins: "Proteínas",
+    ofDailyGoal: "da tua meta diÃ¡ria",
+    proteins: "ProteÃ­nas",
     carbohydrates: "Carboidratos",
     fats: "Gorduras",
     ingredientsIdentified: "Ingredientes Identificados",
     nutritionalDetails: "Detalhes Nutricionais",
-    sodium: "Sódio",
+    sodium: "SÃ³dio",
     fiber: "Fibra",
-    sugars: "Açúcares",
+    sugars: "AÃ§Ãºcares",
     vitaminA: "Vitamina A",
     vitaminC: "Vitamina C",
     iron: "Ferro",
-    calcium: "Cálcio",
+    calcium: "CÃ¡lcio",
     dv: "VD",
     insightsForYou: "Insights para ti",
-    adjustPortion: "Ajustar Porção",
-    normalPortion: "Porção normal",
-    viewSaved: "Visualização guardada",
+    adjustPortion: "Ajustar PorÃ§Ã£o",
+    normalPortion: "PorÃ§Ã£o normal",
+    viewSaved: "VisualizaÃ§Ã£o guardada",
     saving: "A guardar...",
-    addToDiary: "Adicionar ao Diário",
+    addToDiary: "Adicionar ao DiÃ¡rio",
     analyzeAnother: "Analisar Outro Prato",
     weekly: "Semanal",
-    keepConsistent: "Mantém a consistência para resultados precisos!",
+    keepConsistent: "MantÃ©m a consistÃªncia para resultados precisos!",
     updateWeight: "Atualizar peso atual",
-    weightHint: "Dica: verifica o teu peso a cada mês para manter o plano preciso.",
+    weightHint: "Dica: verifica o teu peso a cada mÃªs para manter o plano preciso.",
     changePlan: "Mudar o meu plano",
     shareWeightProgress: "Compartilhar peso anterior e atual",
     logout: "Sair da conta",
@@ -427,10 +427,10 @@ const uiText = {
     shareProgress: "Share progress",
     shareHint:
       "The image includes your name, goals, today intake, macros, hydration, and LUMEfit identity.",
-    toastImageGenerated: "Image generated successfully ✨",
+    toastImageGenerated: "Image generated successfully âœ¨",
     toastImageFailed: "Could not generate the image right now.",
     notificationTitle: "LUMEfit reminder",
-    notificationBody: "Warrior, don't forget you have a dream to achieve ✨",
+    notificationBody: "Warrior, don't forget you have a dream to achieve âœ¨",
     understood: "Got it",
     navHome: "Home",
     navMeals: "Meals",
@@ -471,7 +471,7 @@ const uiText = {
     cancel: "Cancel",
     addIn: "Add in",
     analyzeMeal: "Analyze Meal",
-    takePhotoHint: "Take a photo of your plate and AI does the rest ✨",
+    takePhotoHint: "Take a photo of your plate and AI does the rest âœ¨",
     takePhoto: "Take Photo",
     loadGallery: "Upload from Gallery",
     recentAnalyses: "Recent Analyses",
@@ -601,7 +601,7 @@ async function compressImageForStorage(imageSource: string) {
   });
 
   const canvas = document.createElement("canvas");
-  const maxSize = 320; // Reduzido para poupar espaço
+  const maxSize = 320; // Reduzido para poupar espaÃ§o
   const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
   canvas.width = Math.max(1, Math.round(img.width * ratio));
   canvas.height = Math.max(1, Math.round(img.height * ratio));
@@ -610,7 +610,7 @@ async function compressImageForStorage(imageSource: string) {
   if (!ctx) return null;
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-  // Qualidade reduzida para 0.4 para gerar um "código" (Base64) ultra leve
+  // Qualidade reduzida para 0.4 para gerar um "cÃ³digo" (Base64) ultra leve
   return canvas.toDataURL("image/jpeg", 0.4);
 }
 
@@ -643,7 +643,7 @@ const RecentAnalysisItem = memo(function RecentAnalysisItem({ item, onOpen }: Re
         />
       ) : (
         <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-brand-accent-1/30 bg-brand-accent-1/20 text-3xl shadow-[0_6px_20px_oklch(0.64_0.12_152_/_20%)]">
-          🍽️
+          ðŸ½ï¸
         </div>
       )}
       <p className="mt-1 truncate text-[11px] font-medium">{item.meal_name}</p>
@@ -685,7 +685,7 @@ function generatePlan(profile: Profile): GeneratedPlan {
     calorieGoal,
     hydrationGoalMl,
     macroGoals,
-    summary: `Plano diário estimado para ${profile.name || "ti"}: foco em défice calórico moderado, hidratação consistente e distribuição equilibrada de macros.`,
+    summary: `Plano diÃ¡rio estimado para ${profile.name || "ti"}: foco em dÃ©fice calÃ³rico moderado, hidrataÃ§Ã£o consistente e distribuiÃ§Ã£o equilibrada de macros.`,
   };
 }
 
@@ -821,7 +821,7 @@ function LumeFitApp() {
       }
     } catch (error: any) {
       if (authView === "login" && error.message.includes("Invalid login credentials")) {
-        setAuthError("Este email não tem conta, crie conta");
+        setAuthError("Este email nÃ£o tem conta, crie conta");
       } else {
         setToastMessage(error.message);
         setShowToast(true);
@@ -836,7 +836,7 @@ function LumeFitApp() {
     const queue = JSON.parse(localStorage.getItem("lume_offline_queue") || "[]");
     if (queue.length === 0) return;
 
-    setToastMessage(appLanguage === "en" ? "🌐 Back online! Processing pending meals..." : "🌐 De volta online! A processar refeições pendentes...");
+    setToastMessage(appLanguage === "en" ? "ðŸŒ Back online! Processing pending meals..." : "ðŸŒ De volta online! A processar refeiÃ§Ãµes pendentes...");
     setShowToast(true);
     setManagedTimeout(() => setShowToast(false), 3000);
 
@@ -858,7 +858,7 @@ function LumeFitApp() {
         setShowInstallPrompt(false);
       }
     } else {
-      setToastMessage(appLanguage === "en" ? "To install: Tap 'Share' then 'Add to Home Screen' 📲" : "Para instalar: Toca em 'Partilhar' e depois em 'Adicionar ao Ecrã Principal' 📲");
+      setToastMessage(appLanguage === "en" ? "To install: Tap 'Share' then 'Add to Home Screen' ðŸ“²" : "Para instalar: Toca em 'Partilhar' e depois em 'Adicionar ao EcrÃ£ Principal' ðŸ“²");
       setShowToast(true);
       setManagedTimeout(() => setShowToast(false), 5000);
     }
@@ -976,7 +976,7 @@ function LumeFitApp() {
   }, []);
 
   const showComingSoonToast = useCallback(() => {
-    setToastMessage("Em breve disponível! ✨");
+    setToastMessage("Em breve disponÃ­vel! âœ¨");
     setShowToast(true);
     setManagedTimeout(() => setShowToast(false), 1800);
   }, [setManagedTimeout]);
@@ -1084,7 +1084,7 @@ function LumeFitApp() {
         setProfile(currentProfile);
       }
 
-      // 2. Buscar Refeições de Hoje
+      // 2. Buscar RefeiÃ§Ãµes de Hoje
       const { data: mealsData } = await supabase
         .from('meals')
         .select('*')
@@ -1108,7 +1108,7 @@ function LumeFitApp() {
         setEntries(mappedMeals);
       }
 
-      // 3. Buscar Água de Hoje
+      // 3. Buscar Ãgua de Hoje
       const { data: waterData } = await supabase
         .from('water_logs')
         .select('amount_ml')
@@ -1121,7 +1121,7 @@ function LumeFitApp() {
         setWaterIntakeMl(totalWater);
       }
 
-      // 4. Lógica de Acesso
+      // 4. LÃ³gica de Acesso
       if (userRole === 'admin') {
         setView("home");
       } else if (hasExpired) {
@@ -1388,7 +1388,7 @@ function LumeFitApp() {
         setUserClarificationResponse(""); // Reset for next time
         setAiClarificationQuestion(null);
       } catch (err: any) {
-        setToastMessage("Erro na análise: " + err.message);
+        setToastMessage("Erro na anÃ¡lise: " + err.message);
         setShowToast(true);
         setMealStage("camera");
       }
@@ -1489,7 +1489,7 @@ function LumeFitApp() {
     { title: string; subtitle: string; profileValue: (typeof activityLevels)[number] }
   >>(() => ({
     sedentario: {
-      title: "Sedentário",
+      title: "SedentÃ¡rio",
       subtitle: "Trabalho sentado, pouco movimento.",
       profileValue: "Fico muito em casa",
     },
@@ -1500,7 +1500,7 @@ function LumeFitApp() {
     },
     intenso: {
       title: "Intenso / Atleta",
-      subtitle: "Treinos pesados diários e rotina ativa.",
+      subtitle: "Treinos pesados diÃ¡rios e rotina ativa.",
       profileValue: "Sou moderadamente ativa",
     },
   }), []);
@@ -1585,11 +1585,11 @@ function LumeFitApp() {
   const unlockedAchievements = useMemo(() => {
     const next: string[] = [];
     if (Object.keys(entriesByDay).some((day) => (entriesByDay[day] || []).length > 0)) {
-      next.push("Primeiro registo concluído 🌟");
+      next.push("Primeiro registo concluÃ­do ðŸŒŸ");
     }
-    if (streakDays >= 7) next.push("7 dias consecutivos 🔥");
-    if (weeklyBars.some((day) => day.calories > 0)) next.push("Semana ativa 💚");
-    if (waterIntakeMl > 0) next.push("Bebeu água hoje 💧");
+    if (streakDays >= 7) next.push("7 dias consecutivos ðŸ”¥");
+    if (weeklyBars.some((day) => day.calories > 0)) next.push("Semana ativa ðŸ’š");
+    if (waterIntakeMl > 0) next.push("Bebeu Ã¡gua hoje ðŸ’§");
     return next;
   }, [entriesByDay, streakDays, waterIntakeMl, weeklyBars]);
 
@@ -1658,7 +1658,7 @@ function LumeFitApp() {
         setPendingAnalyses(newQueue);
         localStorage.setItem("lume_offline_queue", JSON.stringify(newQueue));
         
-        setToastMessage(appLanguage === "en" ? "📥 Offline! Image saved to queue." : "📥 Sem internet! Foto guardada na fila.");
+        setToastMessage(appLanguage === "en" ? "ðŸ“¥ Offline! Image saved to queue." : "ðŸ“¥ Sem internet! Foto guardada na fila.");
         setShowToast(true);
         setManagedTimeout(() => setShowToast(false), 3000);
       };
@@ -1751,8 +1751,8 @@ function LumeFitApp() {
     const selectedMealName = localizedMeals[selectedMeal].replace(/^[^ ]+ /, "").toLowerCase();
     setToastMessage(
       appLanguage === "en"
-        ? `✅ ${kcal} kcal added to ${selectedMealName}!`
-        : `✅ ${kcal} kcal adicionadas ao ${selectedMealName}!`,
+        ? `âœ… ${kcal} kcal added to ${selectedMealName}!`
+        : `âœ… ${kcal} kcal adicionadas ao ${selectedMealName}!`,
     );
     setShowToast(true);
     setShowConfetti(true);
@@ -1845,7 +1845,7 @@ function LumeFitApp() {
       }).eq('id', session.user.id);
       
       setView(profile.role === 'admin' ? "home" : "waiting_approval");
-      setToastMessage("Perfil enviado para aprovação! ✨");
+      setToastMessage("Perfil enviado para aprovaÃ§Ã£o! âœ¨");
       setShowToast(true);
       setManagedTimeout(() => setShowToast(false), 3000);
     } catch (error: any) {
@@ -1859,19 +1859,19 @@ function LumeFitApp() {
 
   const shareSummary =
     appLanguage === "en"
-      ? `My consistency in LUMEfit 💚\n${profile.name || "User"}\nGoal: ${profile.calorieGoal} kcal • ${(profile.hydrationGoalMl / 1000).toFixed(1)}L\nToday: ${consumedCalories} kcal and ${(waterIntakeMl / 1000).toFixed(2)}L`
-      : `A minha consistência no LUMEfit 💚\n${profile.name || "Utilizadora"}\nMeta: ${profile.calorieGoal} kcal • ${(profile.hydrationGoalMl / 1000).toFixed(1)}L\nHoje: ${consumedCalories} kcal e ${(waterIntakeMl / 1000).toFixed(2)}L`;
+      ? `My consistency in LUMEfit ðŸ’š\n${profile.name || "User"}\nGoal: ${profile.calorieGoal} kcal â€¢ ${(profile.hydrationGoalMl / 1000).toFixed(1)}L\nToday: ${consumedCalories} kcal and ${(waterIntakeMl / 1000).toFixed(2)}L`
+      : `A minha consistÃªncia no LUMEfit ðŸ’š\n${profile.name || "Utilizadora"}\nMeta: ${profile.calorieGoal} kcal â€¢ ${(profile.hydrationGoalMl / 1000).toFixed(1)}L\nHoje: ${consumedCalories} kcal e ${(waterIntakeMl / 1000).toFixed(2)}L`;
   const weightShareSummary =
     appLanguage === "en"
-      ? `My weight evolution in LUMEfit 💚\n${profile.name || "User"}\nPrevious weight: ${previousWeight.toFixed(1)}kg\nCurrent weight: ${profile.weight.toFixed(1)}kg\nTarget weight: ${profile.targetWeight.toFixed(1)}kg`
-      : `A minha evolução de peso no LUMEfit 💚\n${profile.name || "Utilizadora"}\nPeso anterior: ${previousWeight.toFixed(1)}kg\nPeso atual: ${profile.weight.toFixed(1)}kg\nPeso desejado: ${profile.targetWeight.toFixed(1)}kg`;
+      ? `My weight evolution in LUMEfit ðŸ’š\n${profile.name || "User"}\nPrevious weight: ${previousWeight.toFixed(1)}kg\nCurrent weight: ${profile.weight.toFixed(1)}kg\nTarget weight: ${profile.targetWeight.toFixed(1)}kg`
+      : `A minha evoluÃ§Ã£o de peso no LUMEfit ðŸ’š\n${profile.name || "Utilizadora"}\nPeso anterior: ${previousWeight.toFixed(1)}kg\nPeso atual: ${profile.weight.toFixed(1)}kg\nPeso desejado: ${profile.targetWeight.toFixed(1)}kg`;
   const activeShareSummary = shareMode === "weight" ? weightShareSummary : shareSummary;
 
   const handleGenerateShareImage = useCallback(async () => {
     setIsGeneratingShareImage(true);
     try {
       const isWeightMode = shareMode === "weight";
-      const imageUserName = profile.name || (appLanguage === "en" ? "Champion" : "Campeã");
+      const imageUserName = profile.name || (appLanguage === "en" ? "Champion" : "CampeÃ£");
       const text =
         appLanguage === "en"
           ? {
@@ -1889,26 +1889,26 @@ function LumeFitApp() {
               target: "Target weight",
               weightGoal: "Weight loss goal",
               completed: "completed",
-              motivationA: "Every workout and every meal gets you closer to your dream. ✨",
-              motivationB: `Keep it up, ${imageUserName} — your effort is paying off! ✨`,
+              motivationA: "Every workout and every meal gets you closer to your dream. âœ¨",
+              motivationB: `Keep it up, ${imageUserName} â€” your effort is paying off! âœ¨`,
             }
           : {
-              subtitle: "Consistência que transforma",
+              subtitle: "ConsistÃªncia que transforma",
               hero: `Guerreira ${imageUserName}, segue firme no teu foco!`,
               progressA: "PROGRESSO",
-              progressB: "DIÁRIO",
+              progressB: "DIÃRIO",
               calories: "Calorias",
-              weightSubtitle: "Evolução real de peso",
-              weightHero: `Parabéns ${imageUserName}, a tua perda de peso é progresso real!`,
+              weightSubtitle: "EvoluÃ§Ã£o real de peso",
+              weightHero: `ParabÃ©ns ${imageUserName}, a tua perda de peso Ã© progresso real!`,
               weightA: "PESO",
               weightB: "EM PROGRESSO",
               prev: "Peso anterior",
               current: "Peso atual",
               target: "Peso desejado",
               weightGoal: "Meta de perda de peso",
-              completed: "concluído",
-              motivationA: "Cada treino e cada refeição aproxima-te do teu sonho. ✨",
-              motivationB: `Continua assim, ${imageUserName} — o teu esforço está a dar resultado! ✨`,
+              completed: "concluÃ­do",
+              motivationA: "Cada treino e cada refeiÃ§Ã£o aproxima-te do teu sonho. âœ¨",
+              motivationB: `Continua assim, ${imageUserName} â€” o teu esforÃ§o estÃ¡ a dar resultado! âœ¨`,
             };
       const canvas = document.createElement("canvas");
       canvas.width = 1080;
@@ -2056,7 +2056,7 @@ function LumeFitApp() {
 
         const macroRows = [
           {
-            label: "Proteína",
+            label: "ProteÃ­na",
             consumed: Math.round(macros.protein),
             goal: profile.macroGoals.protein,
             progress: macroProgress.protein,
@@ -2386,7 +2386,7 @@ function LumeFitApp() {
               </div>
               <div className="space-y-2">
                 <h1 className="text-3xl font-bold tracking-tight">LUMEfit</h1>
-                <p className="text-muted-foreground font-medium">Consistência que transforma.</p>
+                <p className="text-muted-foreground font-medium">ConsistÃªncia que transforma.</p>
               </div>
             </div>
 
@@ -2430,7 +2430,7 @@ function LumeFitApp() {
                     value={authPassword}
                     onChange={(e) => setAuthPassword(e.target.value)}
                     className="w-full h-14 rounded-2xl bg-muted/30 border-none px-5 focus:ring-2 focus:ring-brand-accent-2 transition-all outline-none font-medium"
-                    placeholder="••••••••"
+                    placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                     required
                   />
                 </div>
@@ -2442,14 +2442,14 @@ function LumeFitApp() {
                   {authLoading ? (
                     <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
-                    authView === "login" ? "Entrar Agora" : "Começar Jornada"
+                    authView === "login" ? "Entrar Agora" : "ComeÃ§ar Jornada"
                   )}
                 </Button>
               </form>
             </div>
             
             <p className="text-center text-xs text-muted-foreground">
-              Ao entrar, concordas com os nossos termos de serviço.
+              Ao entrar, concordas com os nossos termos de serviÃ§o.
             </p>
           </div>
         </div>
@@ -2481,9 +2481,9 @@ function LumeFitApp() {
               <img src="/lume-logo.png" alt="LUMEfit" className="w-full h-full object-contain" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-xl font-bold">LUMEfit no teu telemóvel</h3>
+              <h3 className="text-xl font-bold">LUMEfit no teu telemÃ³vel</h3>
               <p className="text-sm text-muted-foreground">
-                Instala o app para uma experiência mais rápida, acesso offline e ecrã inteiro.
+                Instala o app para uma experiÃªncia mais rÃ¡pida, acesso offline e ecrÃ£ inteiro.
               </p>
             </div>
             <div className="flex flex-col gap-3 pt-2">
@@ -2491,7 +2491,7 @@ function LumeFitApp() {
                 onClick={handleInstallClick}
                 className="h-14 rounded-2xl bg-brand-accent-2 hover:bg-brand-accent-2/90 text-white font-bold text-lg shadow-lg shadow-brand-accent-2/20"
               >
-                📲 Instalar App
+                ðŸ“² Instalar App
               </Button>
               <Button 
                 variant="ghost" 
@@ -2574,7 +2574,7 @@ function LumeFitApp() {
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-glass-border bg-glass"
                 onClick={showComingSoonToast}
               >
-                ✕
+                âœ•
               </button>
               <span className="h-10 w-10" />
               <span className="h-10 w-10" />
@@ -2586,7 +2586,7 @@ function LumeFitApp() {
                   Seu corpo, sua <span className="text-brand-accent-2">jornada.</span>
                 </h1>
                 <p className="mt-4 text-lg text-muted-foreground">
-                  Vamos criar um plano que respeita seu ritmo, sua rotina e sua essência.
+                  Vamos criar um plano que respeita seu ritmo, sua rotina e sua essÃªncia.
                 </p>
               </div>
 
@@ -2616,13 +2616,13 @@ function LumeFitApp() {
                 <div className="relative overflow-hidden rounded-[18px] border border-glass-border/80 bg-gradient-to-b from-brand-accent-1/75 to-brand-accent-2/95 p-6 text-center text-primary-foreground">
                   <div className="mx-auto flex h-44 w-44 items-center justify-center rounded-full bg-brand-accent-2/60 shadow-[inset_0_0_0_1px_var(--color-glass-border)]">
                     <div>
-                      <p className="text-5xl">💚</p>
-                      <p className="mt-2 text-4xl font-semibold">Saúde</p>
+                      <p className="text-5xl">ðŸ’š</p>
+                      <p className="mt-2 text-4xl font-semibold">SaÃºde</p>
                       <p className="text-lg opacity-90">bem-estar</p>
                     </div>
                   </div>
                   <p className="mt-4 text-sm tracking-[0.18em] text-primary-foreground/90">
-                    ● IA ATIVA • ANALISANDO BIOTIPO
+                    â— IA ATIVA â€¢ ANALISANDO BIOTIPO
                   </p>
                 </div>
               </article>
@@ -2685,7 +2685,7 @@ function LumeFitApp() {
                     onClick={() => setProfile((p) => ({ ...p, age: Math.max(16, p.age - 1) }))}
                     className="h-12 w-12 rounded-xl"
                   >
-                    −
+                    âˆ’
                   </Button>
                   <p className="text-4xl font-bold">{profile.age}</p>
                   <Button
@@ -2700,8 +2700,8 @@ function LumeFitApp() {
               </div>
 
               <div>
-                <p className="mb-3 text-sm font-semibold uppercase tracking-[0.08em]">Nível de atividade</p>
-                <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Nível de atividade">
+                <p className="mb-3 text-sm font-semibold uppercase tracking-[0.08em]">NÃ­vel de atividade</p>
+                <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="NÃ­vel de atividade">
                   {[
                     { key: "sedentario" as const, icon: Sofa },
                     { key: "moderado" as const, icon: Footprints },
@@ -2776,11 +2776,11 @@ function LumeFitApp() {
                   {authLoading ? (
                     <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
-                    <>Submeter Dados para Aprovação</>
+                    <>Submeter Dados para AprovaÃ§Ã£o</>
                   )}
                 </Button>
                 <p className="px-2 text-center text-sm text-muted-foreground">
-                  Após submeter, a equipa LUMEfit irá validar os teus dados para libertar a análise com IA.
+                  ApÃ³s submeter, a equipa LUMEfit irÃ¡ validar os teus dados para libertar a anÃ¡lise com IA.
                 </p>
               </div>
             </div>
@@ -2792,17 +2792,17 @@ function LumeFitApp() {
         <section className={shellClass}>
           <div className="glass-card rounded-[32px] p-8 text-center space-y-6">
             <div className="mx-auto w-24 h-24 rounded-full bg-brand-accent-1/20 flex items-center justify-center text-4xl animate-bounce-slow">
-              ✨
+              âœ¨
             </div>
             <div className="space-y-2">
               <h2 className="text-3xl font-bold">Perfil Aprovado!</h2>
               <p className="text-muted-foreground">
-                A tua conta foi validada. Agora a nossa IA está pronta para criar o teu plano personalizado.
+                A tua conta foi validada. Agora a nossa IA estÃ¡ pronta para criar o teu plano personalizado.
               </p>
             </div>
 
             <div className="p-6 rounded-2xl bg-brand-accent-1/10 border border-brand-accent-1/20">
-              <p className="text-sm font-medium">Prepara-te para a transformação! 🚀</p>
+              <p className="text-sm font-medium">Prepara-te para a transformaÃ§Ã£o! ðŸš€</p>
             </div>
 
             {!showPlanPresentation ? (
@@ -2826,7 +2826,7 @@ function LumeFitApp() {
                <div ref={planResultRef} className="animate-in slide-in-from-bottom-10 duration-700">
                 <article className="glass-card rounded-[24px] p-6 text-left border-2 border-brand-accent-2/30">
                   <p className="text-xs font-bold uppercase tracking-widest text-brand-accent-2">O teu novo plano</p>
-                  <h3 className="mt-2 text-2xl font-bold">Plano Diário Sugerido</h3>
+                  <h3 className="mt-2 text-2xl font-bold">Plano DiÃ¡rio Sugerido</h3>
                   <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{generatedPlan.summary}</p>
 
                   <div className="mt-6 grid grid-cols-2 gap-4">
@@ -2835,7 +2835,7 @@ function LumeFitApp() {
                       <p className="text-2xl font-bold text-brand-accent-2">{generatedPlan.calorieGoal} kcal</p>
                     </div>
                     <div className="rounded-2xl bg-muted/30 p-4 border border-glass-border">
-                      <p className="text-xs text-muted-foreground">Hidratação</p>
+                      <p className="text-xs text-muted-foreground">HidrataÃ§Ã£o</p>
                       <p className="text-2xl font-bold text-brand-accent-1">{(generatedPlan.hydrationGoalMl / 1000).toFixed(1)}L</p>
                     </div>
                   </div>
@@ -2863,7 +2863,7 @@ function LumeFitApp() {
               <header className="glass-card rounded-xl p-4">
                 <p className="text-sm text-muted-foreground">{getTodayLabel(localeTag)}</p>
                 <h2 className="mt-1 text-2xl font-semibold">
-                  {t.greeting}, {profile.name || t.champion}! 🌟
+                  {t.greeting}, {profile.name || t.champion}! ðŸŒŸ
                 </h2>
                 <p className="mt-2 text-sm text-muted-foreground">{todayQuote}</p>
               </header>
@@ -2946,7 +2946,7 @@ function LumeFitApp() {
                       </div>
                       <div className="flex-1 space-y-3">
                         <p className="text-sm text-muted-foreground">
-                          Meta diária baseada no teu plano: <strong className="text-foreground">{hydrationGoalLiters} litros</strong>
+                          Meta diÃ¡ria baseada no teu plano: <strong className="text-foreground">{hydrationGoalLiters} litros</strong>
                         </p>
                         <Progress value={hydrationPercent} indicatorClassName="bg-hydration" />
                         <div className="flex gap-2">
@@ -3033,9 +3033,9 @@ function LumeFitApp() {
                     <div className="mt-4 space-y-4">
                       <article className="glass-card rounded-[20px] p-5 shadow-[0_0_0_1px_var(--color-brand-accent-1)_inset,0_8px_28px_oklch(0.64_0.12_152_/_20%)]">
                         <p className="text-xs text-muted-foreground">Adicionar em: {currentMealTitle}</p>
-                        <h3 className="mt-1 text-2xl font-bold text-primary">Analisar Refeição</h3>
+                        <h3 className="mt-1 text-2xl font-bold text-primary">Analisar RefeiÃ§Ã£o</h3>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          Tira uma foto do teu prato e a IA faz o resto ✨
+                          Tira uma foto do teu prato e a IA faz o resto âœ¨
                         </p>
 
                         <div className="mt-4 grid grid-cols-2 gap-3">
@@ -3059,8 +3059,8 @@ function LumeFitApp() {
 
                       <article className="glass-card rounded-[20px] p-4">
                         <div className="mb-3 flex items-center justify-between">
-                          <h4 className="text-sm font-semibold">Análises Recentes</h4>
-                          <span className="text-xs text-muted-foreground">Últimas 5</span>
+                          <h4 className="text-sm font-semibold">AnÃ¡lises Recentes</h4>
+                          <span className="text-xs text-muted-foreground">Ãšltimas 5</span>
                         </div>
                         <div className="no-scrollbar scroll-touch card-list-contain recent-meals-strip flex gap-3 overflow-x-auto pb-1">
                           {recentAnalyses.map((item) => (
@@ -3129,10 +3129,10 @@ function LumeFitApp() {
                       <article className="glass-card overflow-hidden rounded-[32px] border-2 border-brand-accent-1/30 shadow-2xl shadow-brand-accent-1/10">
                         <div className="bg-gradient-to-br from-brand-accent-1/10 to-transparent p-6">
                           <div className="w-16 h-16 rounded-3xl bg-white shadow-lg flex items-center justify-center text-4xl mb-6 animate-bounce-slow">
-                            🤔
+                            ðŸ¤”
                           </div>
-                          <h3 className="text-2xl font-bold text-foreground">A IA tem uma dúvida...</h3>
-                          <p className="mt-2 text-sm text-muted-foreground">Para uma análise 100% precisa, preciso de um detalhe:</p>
+                          <h3 className="text-2xl font-bold text-foreground">A IA tem uma dÃºvida...</h3>
+                          <p className="mt-2 text-sm text-muted-foreground">Para uma anÃ¡lise 100% precisa, preciso de um detalhe:</p>
                         </div>
                         
                         <div className="px-6 pb-6 space-y-6">
@@ -3148,7 +3148,7 @@ function LumeFitApp() {
                             <textarea 
                               value={userClarificationResponse}
                               onChange={(e) => setUserClarificationResponse(e.target.value)}
-                              placeholder="Ex: É um frango grelhado na air fryer com pouco azeite..."
+                              placeholder="Ex: Ã‰ um frango grelhado na air fryer com pouco azeite..."
                               className="w-full h-36 p-5 rounded-[24px] bg-white/50 border border-glass-border focus:ring-4 focus:ring-brand-accent-1/20 focus:border-brand-accent-1 outline-none text-base transition-all shadow-inner resize-none"
                             />
                           </div>
@@ -3158,7 +3158,7 @@ function LumeFitApp() {
                               variant="outline" 
                               className="flex-1 h-14 rounded-2xl border-glass-border hover:bg-muted/50 text-muted-foreground font-bold"
                               onClick={() => {
-                                setUserClarificationResponse("Não tenho a certeza, analisa como preferires.");
+                                setUserClarificationResponse("NÃ£o tenho a certeza, analisa como preferires.");
                                 setMealStage("analyzing");
                               }}
                             >
@@ -3192,7 +3192,7 @@ function LumeFitApp() {
                         <h3 className="mt-3 text-xl font-bold">{activeResult.mealName}</h3>
                         <div className="mt-3 flex flex-wrap items-center gap-2">
                           <span className="rounded-full border border-brand-accent-1/40 bg-brand-accent-1/20 px-3 py-1 text-xs font-medium text-primary">
-                            {activeResult.confidence}% {t.accuracy} ✓
+                            {activeResult.confidence}% {t.accuracy} âœ“
                           </span>
                           <span className="rounded-full border border-glass-border bg-glass px-3 py-1 text-xs">
                             {activeResult.cuisineTag}
@@ -3301,7 +3301,7 @@ function LumeFitApp() {
                                       <p className="text-xs text-muted-foreground">{Math.round(item.calories * portionMultiplier)} kcal</p>
                                     </div>
                                   </div>
-                                  <span className="text-xs text-muted-foreground">{expanded ? "−" : "+"}</span>
+                                  <span className="text-xs text-muted-foreground">{expanded ? "âˆ’" : "+"}</span>
                                 </div>
                                 {expanded ? <p className="mt-2 text-xs text-muted-foreground">{item.note}</p> : null}
                               </button>
@@ -3327,13 +3327,13 @@ function LumeFitApp() {
                         {nutritionOpen ? (
                           <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                             {[
-                              `🧂 ${t.sodium}: ${Math.round(activeResult.sodiumMg * portionMultiplier)}mg`,
-                              `🫀 ${t.fiber}: ${(activeResult.fiberG * portionMultiplier).toFixed(1)}g`,
-                              `🍬 ${t.sugars}: ${(activeResult.sugarsG * portionMultiplier).toFixed(1)}g`,
-                              `💊 ${t.vitaminA}: ${Math.round(activeResult.vitaminAPct * portionMultiplier)}% ${t.dv}`,
-                              `💊 ${t.vitaminC}: ${Math.round(activeResult.vitaminCPct * portionMultiplier)}% ${t.dv}`,
-                              `⚡ ${t.iron}: ${Math.round(activeResult.ironPct * portionMultiplier)}% ${t.dv}`,
-                              `🦴 ${t.calcium}: ${Math.round(activeResult.calciumPct * portionMultiplier)}% ${t.dv}`,
+                              `ðŸ§‚ ${t.sodium}: ${Math.round(activeResult.sodiumMg * portionMultiplier)}mg`,
+                              `ðŸ«€ ${t.fiber}: ${(activeResult.fiberG * portionMultiplier).toFixed(1)}g`,
+                              `ðŸ¬ ${t.sugars}: ${(activeResult.sugarsG * portionMultiplier).toFixed(1)}g`,
+                              `ðŸ’Š ${t.vitaminA}: ${Math.round(activeResult.vitaminAPct * portionMultiplier)}% ${t.dv}`,
+                              `ðŸ’Š ${t.vitaminC}: ${Math.round(activeResult.vitaminCPct * portionMultiplier)}% ${t.dv}`,
+                              `âš¡ ${t.iron}: ${Math.round(activeResult.ironPct * portionMultiplier)}% ${t.dv}`,
+                              `ðŸ¦´ ${t.calcium}: ${Math.round(activeResult.calciumPct * portionMultiplier)}% ${t.dv}`,
                             ].map((value) => (
                               <div key={value} className="rounded-lg border border-glass-border bg-glass px-3 py-2">
                                 {value}
@@ -3344,7 +3344,7 @@ function LumeFitApp() {
                       </article>
 
                       <article className="glass-card rounded-[20px] border-l-4 border-l-brand-accent-1 p-4">
-                        <h4 className="text-sm font-semibold">💡 {t.insightsForYou}</h4>
+                        <h4 className="text-sm font-semibold">ðŸ’¡ {t.insightsForYou}</h4>
                         <div className="mt-3 space-y-2">
                           {activeResult.insights.map((tipItem) => (
                             <div key={tipItem} className="rounded-lg border border-glass-border bg-glass px-3 py-2 text-sm">
@@ -3358,7 +3358,7 @@ function LumeFitApp() {
                         <div className="mb-3 flex items-center justify-between">
                           <h4 className="text-sm font-semibold">{t.adjustPortion}</h4>
                           <span className="rounded-full border border-brand-accent-1/40 bg-brand-accent-1/15 px-2.5 py-1 text-xs font-medium">
-                            {portionMultiplier}x — {t.normalPortion}
+                            {portionMultiplier}x â€” {t.normalPortion}
                           </span>
                         </div>
 
@@ -3409,7 +3409,7 @@ function LumeFitApp() {
               <div className="glass-card rounded-xl p-4">
                 <h2 className="text-lg font-semibold">{t.weightHistory}</h2>
                 {weightHistory.length === 0 ? (
-                  <p className="mt-4 text-sm text-muted-foreground">{appLanguage === "en" ? "No weight logs yet — add your first! 🌿" : "Ainda sem registos de peso — adiciona o teu primeiro! 🌿"}</p>
+                  <p className="mt-4 text-sm text-muted-foreground">{appLanguage === "en" ? "No weight logs yet â€” add your first! ðŸŒ¿" : "Ainda sem registos de peso â€” adiciona o teu primeiro! ðŸŒ¿"}</p>
                 ) : (
                   <div className="mt-4 space-y-2">
                     {weightHistory.map((point) => {
@@ -3437,14 +3437,14 @@ function LumeFitApp() {
               <div className="mt-4 grid grid-cols-3 gap-2">
                 <article className="glass-card rounded-xl p-3 text-center">
                   <p className="text-xs text-muted-foreground">Dias seguidos</p>
-                  <p className="text-xl font-bold">{streakDays > 0 ? `${streakDays} 🔥` : "0"}</p>
+                  <p className="text-xl font-bold">{streakDays > 0 ? `${streakDays} ðŸ”¥` : "0"}</p>
                 </article>
                 <article className="glass-card rounded-xl p-3 text-center">
                   <p className="text-xs text-muted-foreground">Semana</p>
                   <p className="text-xl font-bold">{weeklyBars.reduce((sum, day) => sum + day.calories, 0)} kcal</p>
                 </article>
                 <article className="glass-card rounded-xl p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Média diária</p>
+                  <p className="text-xs text-muted-foreground">MÃ©dia diÃ¡ria</p>
                   <p className="text-xl font-bold">{weeklyAverage} kcal</p>
                 </article>
               </div>
@@ -3475,7 +3475,7 @@ function LumeFitApp() {
               <div className="mt-4 grid grid-cols-2 gap-3">
                 {(unlockedAchievements.length > 0
                   ? unlockedAchievements
-                  : ["Ainda sem dados — começa a registar hoje! 🌿"]
+                  : ["Ainda sem dados â€” comeÃ§a a registar hoje! ðŸŒ¿"]
                 ).map((badge) => (
                   <article
                     key={badge}
@@ -3493,7 +3493,7 @@ function LumeFitApp() {
               <h2 className="mb-3 text-lg font-semibold">Treinos</h2>
 
               <article className="glass-card rounded-[20px] p-4">
-                <h3 className="text-sm font-semibold">Vídeo de Treino</h3>
+                <h3 className="text-sm font-semibold">VÃ­deo de Treino</h3>
                 <div className="mt-3 overflow-hidden rounded-[18px] border border-glass-border bg-glass">
                   <div className="relative aspect-video w-full">
                     <iframe
@@ -3539,7 +3539,7 @@ function LumeFitApp() {
                           }
                         >
                           <Check className="h-4 w-4" />
-                          {isDone ? "Concluído" : "Certo"}
+                          {isDone ? "ConcluÃ­do" : "Certo"}
                         </Button>
                       </div>
                     </article>
@@ -3556,7 +3556,7 @@ function LumeFitApp() {
                 <div className="mx-auto h-20 w-20 rounded-full border-2 border-brand-accent-2 bg-glass" />
                 <h2 className="mt-3 text-xl font-semibold">{profile.name || "Utilizadora"}</h2>
                 <p className="text-sm text-muted-foreground">
-                  {profile.weight}kg → {profile.targetWeight}kg • {profile.city}
+                  {profile.weight}kg â†’ {profile.targetWeight}kg â€¢ {profile.city}
                 </p>
               </div>
 
@@ -3572,7 +3572,7 @@ function LumeFitApp() {
                     <p className="text-2xl font-bold">{profile.calorieGoal}</p>
                   </div>
                   <div className="rounded-xl border border-glass-border bg-glass p-3">
-                    <p className="text-xs text-muted-foreground">Água/dia</p>
+                    <p className="text-xs text-muted-foreground">Ãgua/dia</p>
                     <p className="text-2xl font-bold">{(profile.hydrationGoalMl / 1000).toFixed(1)}L</p>
                   </div>
                   <div className="rounded-xl border border-glass-border bg-glass p-3">
@@ -3585,7 +3585,7 @@ function LumeFitApp() {
                     <p className="text-xs text-muted-foreground">Validade do Acesso</p>
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-bold">
-                        {profile.role === 'admin' ? "🛡️ Acesso Vitalício (Admin)" : 
+                        {profile.role === 'admin' ? "ðŸ›¡ï¸ Acesso VitalÃ­cio (Admin)" : 
                           (() => {
                             const expiry = (profile as any).expiry_date || (profile as any).expiryDate;
                             if (!expiry) return "Pendente";
@@ -3661,10 +3661,10 @@ function LumeFitApp() {
                     onClick={handleInstallClick}
                     className="w-full h-12 rounded-xl bg-brand-accent-2/5 hover:bg-brand-accent-2/10 text-brand-accent-2 border-brand-accent-2/20 mb-2"
                   >
-                    📲 Instalar LUMEfit no Telemóvel
+                    ðŸ“² Instalar LUMEfit no TelemÃ³vel
                   </Button>
                 )}
-                <p className="mt-4 text-center text-xs text-muted-foreground">LUMEfit v1.0 • {t.madeForYou}</p>
+                <p className="mt-4 text-center text-xs text-muted-foreground">LUMEfit v1.0 â€¢ {t.madeForYou}</p>
             </>
           )}
         </section>
@@ -3702,7 +3702,7 @@ function LumeFitApp() {
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/55 p-4 backdrop-blur-xl">
           <div className="glass-card w-full max-w-sm rounded-[24px] p-5 text-center">
             <div className="relative mx-auto h-56 overflow-hidden rounded-2xl border border-brand-accent-1/35">
-              <img src={previewImage} alt="Análise em progresso" className="h-full w-full object-cover" />
+              <img src={previewImage} alt="AnÃ¡lise em progresso" className="h-full w-full object-cover" />
               <div className="scan-line" />
               <div className="radar-ring" />
               <div className="focus-corners" />
@@ -3873,19 +3873,19 @@ function LumeFitApp() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-6 text-center">
           <div className="max-w-xs space-y-6 animate-in fade-in zoom-in duration-500">
             <div className="relative mx-auto h-24 w-24 flex items-center justify-center rounded-full bg-brand-accent-2/10 text-4xl">
-              ⏳
+              â³
               <div className="absolute inset-0 rounded-full border-2 border-brand-accent-2 border-t-transparent animate-spin" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold">Aguardando Aprovação</h2>
+              <h2 className="text-2xl font-bold">Aguardando AprovaÃ§Ã£o</h2>
               <p className="text-sm text-muted-foreground">
-                O seu perfil está em análise pela equipa LUMEfit. <br/>
-                Assim que o seu pagamento for confirmado, terá acesso total ✨
+                O seu perfil estÃ¡ em anÃ¡lise pela equipa LUMEfit. <br/>
+                Assim que o seu pagamento for confirmado, terÃ¡ acesso total âœ¨
               </p>
             </div>
             <div className="p-4 rounded-2xl bg-glass border border-glass-border">
               <p className="text-xs font-bold uppercase tracking-widest text-brand-accent-2 mb-1">Dica</p>
-              <p className="text-xs text-muted-foreground">Pode fechar o app, nós notificaremos assim que for libertado!</p>
+              <p className="text-xs text-muted-foreground">Pode fechar o app, nÃ³s notificaremos assim que for libertado!</p>
             </div>
             
           </div>
@@ -3896,12 +3896,12 @@ function LumeFitApp() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-6 text-center">
           <div className="max-w-xs space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="mx-auto h-24 w-24 flex items-center justify-center rounded-full bg-red-50 text-5xl">
-              🚫
+              ðŸš«
             </div>
             <div className="space-y-3">
               <h2 className="text-2xl font-bold">Acesso Suspenso</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Você foi retirado do acesso do app. <br/>
+                VocÃª foi retirado do acesso do app. <br/>
                 Para regularizar a sua conta, entre em contacto com o suporte da LUMEfit no Instagram.
               </p>
             </div>
@@ -3921,7 +3921,7 @@ function LumeFitApp() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-6 text-center">
           <div className="max-w-xs space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="mx-auto h-24 w-24 flex items-center justify-center rounded-full bg-orange-50 text-5xl">
-              ⚠️
+              âš ï¸
             </div>
             <div className="space-y-3">
               <h2 className="text-2xl font-bold">Plano Expirado</h2>
@@ -3960,3 +3960,4 @@ function LumeFitApp() {
 </main>
   );
 }
+
