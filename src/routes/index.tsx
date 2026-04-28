@@ -1,4 +1,4 @@
-﻿import {
+import {
   memo,
   useCallback,
   useEffect,
@@ -1084,38 +1084,54 @@ function LumeFitApp() {
         setProfile(currentProfile);
       }
 
-      // 2. Buscar Refeições de Hoje
-      const { data: mealsData } = await supabase
-        .from('meals')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .gte('timestamp', todayKey + 'T00:00:00')
-        .lte('timestamp', todayKey + 'T23:59:59');
+      // 2. Buscar Todas as Refeições (para Streak e Resumo Semanal)
+      const { data: allMealsData } = await supabase
+        .from("meals")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .order("timestamp", { ascending: false });
 
-      if (mealsData) {
-        const mappedMeals: MealEntry[] = mealsData.map(m => ({
-          id: m.id,
-          meal: m.meal_type as MealType,
-          foodName: m.food_name,
-          calories: m.calories,
-          protein: Number(m.protein),
-          carbs: Number(m.carbs),
-          fat: Number(m.fat),
-          quantity: Number(m.quantity || 1),
-          timestamp: m.timestamp,
-          photo: m.photo_url
-        }));
-        setEntries(mappedMeals);
+      const mappedByDay: Record<string, MealEntry[]> = readAllEntriesByDay();
+
+      if (allMealsData) {
+        allMealsData.forEach((m) => {
+          const date = m.timestamp.slice(0, 10);
+          if (!mappedByDay[date]) mappedByDay[date] = [];
+          // Evitar duplicados se já existirem no localStorage
+          if (!mappedByDay[date].some((existing) => existing.id === m.id)) {
+            mappedByDay[date].push({
+              id: m.id,
+              meal: m.meal_type as MealType,
+              foodName: m.food_name,
+              calories: m.calories,
+              protein: Number(m.protein),
+              carbs: Number(m.carbs),
+              fat: Number(m.fat),
+              quantity: Number(m.quantity || 1),
+              timestamp: m.timestamp,
+              photo: m.photo_url,
+            });
+          }
+        });
       }
 
-      // 3. Buscar Água de Hoje
+      setEntriesByDay(mappedByDay);
+      setEntries(mappedByDay[todayKey] || []);
+
+      if (profileData?.date_joined) {
+        setFirstUseAt(profileData.date_joined);
+      } else if (profileData?.created_at) {
+        setFirstUseAt(profileData.created_at);
+      }
+
+      // 3. Buscar Água de Hoje (e opcionalmente histórico)
       const { data: waterData } = await supabase
-        .from('water_logs')
-        .select('amount_ml')
-        .eq('user_id', session.user.id)
-        .gte('timestamp', todayKey + 'T00:00:00')
-        .lte('timestamp', todayKey + 'T23:59:59');
-      
+        .from("water_logs")
+        .select("amount_ml")
+        .eq("user_id", session.user.id)
+        .gte("timestamp", todayKey + "T00:00:00")
+        .lte("timestamp", todayKey + "T23:59:59");
+
       if (waterData) {
         const totalWater = waterData.reduce((acc, curr) => acc + curr.amount_ml, 0);
         setWaterIntakeMl(totalWater);
@@ -1256,10 +1272,14 @@ function LumeFitApp() {
 
   useEffect(() => {
     const todayKey = getDateKey();
-    setEntriesByDay((prev) => ({
-      ...prev,
-      [todayKey]: entries,
-    }));
+    setEntriesByDay((prev) => {
+      // Só atualiza se houver mudança real para evitar loops
+      if (JSON.stringify(prev[todayKey]) === JSON.stringify(entries)) return prev;
+      return {
+        ...prev,
+        [todayKey]: entries,
+      };
+    });
   }, [entries]);
 
   useEffect(() => {
@@ -1451,12 +1471,67 @@ function LumeFitApp() {
     () => Math.min((consumedCalories / profile.calorieGoal) * 100, 100),
     [consumedCalories, profile.calorieGoal],
   );
-  const ringGlow =
-    caloriePercent < 70
-      ? "var(--color-brand-success)"
-      : caloriePercent < 92
-        ? "var(--color-brand-warning)"
-        : "var(--color-brand-danger)";
+  const calorieColors = useMemo(() => {
+    const rawPercent = (consumedCalories / Math.max(profile.calorieGoal, 1)) * 100;
+    const isOverLimit = consumedCalories > profile.calorieGoal;
+
+    if (isOverLimit) {
+      return {
+        stop1: "#ef4444", // Red
+        stop2: "#991b1b", // Dark Red
+        glow: "rgba(239, 68, 68, 0.5)",
+      };
+    }
+
+    if (rawPercent >= 100) {
+      return {
+        stop1: "#22c55e", // Green
+        stop2: "#15803d", // Dark Green
+        glow: "rgba(34, 197, 94, 0.5)",
+      };
+    }
+
+    if (rawPercent <= 15) {
+      return {
+        stop1: "#f97316", // Orange
+        stop2: "#ef4444", // Red
+        glow: "rgba(249, 115, 22, 0.4)",
+      };
+    }
+
+    // Interpolação entre 15% e 100%
+    const factor = Math.min(1, Math.max(0, (rawPercent - 15) / 85));
+
+    const interpolateColor = (c1: string, c2: string, f: number) => {
+      const r1 = parseInt(c1.slice(1, 3), 16);
+      const g1 = parseInt(c1.slice(3, 5), 16);
+      const b1 = parseInt(c1.slice(5, 7), 16);
+      const r2 = parseInt(c2.slice(1, 3), 16);
+      const g2 = parseInt(c2.slice(3, 5), 16);
+      const b2 = parseInt(c2.slice(5, 7), 16);
+      const r = Math.round(r1 + (r2 - r1) * f)
+        .toString(16)
+        .padStart(2, "0");
+      const g = Math.round(g1 + (g2 - g1) * f)
+        .toString(16)
+        .padStart(2, "0");
+      const b = Math.round(b1 + (b2 - b1) * f)
+        .toString(16)
+        .padStart(2, "0");
+      return `#${r}${g}${b}`;
+    };
+
+    const stop1 = interpolateColor("#f97316", "#22c55e", factor);
+    const stop2 = interpolateColor("#ef4444", "#15803d", factor);
+
+    return {
+      stop1,
+      stop2,
+      glow: `rgba(${parseInt(stop1.slice(1, 3), 16)}, ${parseInt(stop1.slice(3, 5), 16)}, ${parseInt(stop1.slice(5, 7), 16)}, 0.4)`,
+    };
+  }, [consumedCalories, profile.calorieGoal]);
+
+  const ringGlow = calorieColors.glow;
 
   const macros = useMemo(
     () => ({
@@ -1551,10 +1626,13 @@ function LumeFitApp() {
 
   const weeklyBars = useMemo(
     () =>
-      last7Days.map((dateKey, index) => {
+      last7Days.map((dateKey) => {
         const dayEntries = entriesByDay[dateKey] || [];
         const calories = dayEntries.reduce((sum, item) => sum + item.calories, 0);
-        return { day: localizedShortWeekdays[index], calories };
+        const dateObj = new Date(dateKey + "T12:00:00");
+        const dayNum = dateObj.getDay();
+        const labelIndex = dayNum === 0 ? 6 : dayNum - 1;
+        return { day: localizedShortWeekdays[labelIndex], calories };
       }),
     [entriesByDay, last7Days, localizedShortWeekdays],
   );
@@ -2052,7 +2130,7 @@ function LumeFitApp() {
         ctx.fillText(text.calories, 150, 780);
         ctx.font = "500 30px Poppins, sans-serif";
         ctx.fillText(`${consumedCalories} / ${profile.calorieGoal} kcal`, 150, 826);
-        drawProgressBar(150, 848, 780, 34, caloriesProgress, "#3E9C5E");
+        drawProgressBar(150, 848, 780, 34, caloriesProgress, calorieColors.stop1);
 
         const macroRows = [
           {
@@ -2060,21 +2138,21 @@ function LumeFitApp() {
             consumed: Math.round(macros.protein),
             goal: profile.macroGoals.protein,
             progress: macroProgress.protein,
-            color: "#F97316",
+            color: "#F97316", // Laranja
           },
           {
             label: "Carboidratos",
             consumed: Math.round(macros.carbs),
             goal: profile.macroGoals.carbs,
             progress: macroProgress.carbs,
-            color: "#FACC15",
+            color: "#A855F7", // Roxo
           },
           {
             label: "Gordura",
             consumed: Math.round(macros.fat),
             goal: profile.macroGoals.fat,
             progress: macroProgress.fat,
-            color: "#A855F7",
+            color: "#EAB308", // Amarelo
           },
         ];
 
@@ -2876,8 +2954,8 @@ function LumeFitApp() {
                       <svg viewBox="0 0 120 120" className="h-full w-full">
                         <defs>
                           <linearGradient id="calorieRingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor="var(--color-brand-accent-1)" />
-                            <stop offset="100%" stopColor="var(--color-brand-accent-2)" />
+                            <stop offset="0%" stopColor={calorieColors.stop1} />
+                            <stop offset="100%" stopColor={calorieColors.stop2} />
                           </linearGradient>
                         </defs>
                         <circle
@@ -2912,9 +2990,9 @@ function LumeFitApp() {
 
                   <div className="mt-4 grid grid-cols-3 gap-2">
                     {[
-                      { label: t.proteins, value: macros.protein, key: "protein" },
-                      { label: t.carbohydrates, value: macros.carbs, key: "carbs" },
-                      { label: t.fats, value: macros.fat, key: "fat" },
+                      { label: t.proteins, value: macros.protein, key: "protein", color: "bg-macro-protein" },
+                      { label: t.carbohydrates, value: macros.carbs, key: "carbs", color: "bg-macro-carbs" },
+                      { label: t.fats, value: macros.fat, key: "fat", color: "bg-macro-fat" },
                     ].map((macro) => (
                       <article key={macro.key} className="glass-card rounded-xl p-3">
                         <p className="text-xs text-muted-foreground">{macro.label}</p>
@@ -2923,7 +3001,7 @@ function LumeFitApp() {
                         </p>
                         <Progress
                           value={macroProgress[macro.key as "protein" | "carbs" | "fat"]}
-                          indicatorClassName={`bg-macro-${macro.key}`}
+                          indicatorClassName={macro.color}
                         />
                       </article>
                     ))}

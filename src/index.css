@@ -27,9 +27,9 @@
     --brand-accent-1: 145 45% 52%;
     --brand-accent-2: 145 38% 42%;
     --brand-accent-3: 145 30% 78%;
-    --macro-protein: 25 80% 55%;
-    --macro-carbs: 48 90% 60%;
-    --macro-fat: 270 55% 60%;
+    --macro-protein: 25 90% 55%;
+    --macro-carbs: 270 60% 60%;
+    --macro-fat: 48 95% 55%;
     --hydration: 210 70% 55%;
   }
   .dark {
@@ -55,9 +55,9 @@
     --brand-accent-1: 145 45% 58%;
     --brand-accent-2: 145 38% 48%;
     --brand-accent-3: 145 25% 35%;
-    --macro-protein: 25 80% 60%;
-    --macro-carbs: 48 85% 60%;
-    --macro-fat: 270 55% 65%;
+    --macro-protein: 25 90% 60%;
+    --macro-carbs: 270 60% 65%;
+    --macro-fat: 48 90% 60%;
     --hydration: 210 65% 60%;
   }
   * { border-color: hsl(var(--border)); touch-action: manipulation; }
