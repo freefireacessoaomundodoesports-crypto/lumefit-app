@@ -745,7 +745,7 @@ function LumeFitApp() {
   const [animatedCarbs, setAnimatedCarbs] = useState(0);
   const [animatedFat, setAnimatedFat] = useState(0);
 
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [authView, setAuthView] = useState<"login" | "register">("login");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -1354,6 +1354,12 @@ function LumeFitApp() {
           setAiClarificationQuestion(aiResult.perguntas_clarificacao?.[0] || "Pode detalhar melhor os ingredientes?");
           setMealStage("clarification");
           return;
+        }
+
+        // Se chegar aqui e ainda for DUVIDA (ex: usuário pulou mas a IA insistiu),
+        // tentamos extrair o que houver na 'analise' ou damos erro amigável se estiver vazio.
+        if (aiResult.status === "DUVIDA" && (!aiResult.analise || !aiResult.analise.total_kcal)) {
+           throw new Error("A IA não conseguiu identificar o prato mesmo com a sua ajuda. Tente uma foto mais clara.");
         }
 
         const analise = aiResult.analise || {};
@@ -2445,8 +2451,28 @@ function LumeFitApp() {
 
   const currentMealTitle = localizedMeals[selectedMeal];
 
+  if (session === undefined) {
+    return (
+      <div className="fixed inset-0 bg-white flex flex-col items-center justify-center z-[200]">
+         <div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in duration-700">
+            <div className="w-32 h-32 rounded-3xl bg-white p-4 shadow-2xl flex items-center justify-center animate-bounce-slow">
+              <img src="/lume-logo.png" alt="LUMEfit" className="w-full h-full object-contain" />
+            </div>
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-48 h-1.5 bg-muted rounded-full overflow-hidden relative">
+                <div className="absolute inset-0 bg-brand-accent-2 animate-progress-indefinite" />
+              </div>
+              <p className="text-[10px] text-brand-accent-2 font-bold uppercase tracking-[0.2em] animate-pulse">
+                Iniciando LUMEfit...
+              </p>
+            </div>
+         </div>
+      </div>
+    );
+  }
+
   return (
-    <main className="relative min-h-screen overflow-hidden">
+    <main className="relative min-h-screen overflow-hidden bg-background">
      {!session ? (
         <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-foreground animate-in fade-in duration-500">
           <div className="w-full max-w-sm space-y-8">
