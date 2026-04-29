@@ -68,7 +68,7 @@ import { AdminPanel, type AdminUser } from "@/components/admin/AdminPanel";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 
-type ViewKey = "home" | "refeicoes" | "progresso" | "treinos" | "perfil" | "setup" | "auth" | "waiting_approval" | "blocked" | "expired" | "pending_plan";
+type ViewKey = "home" | "refeicoes" | "progresso" | "perfil" | "setup" | "auth" | "waiting_approval" | "blocked" | "expired" | "pending_plan";
 type MealFlowStage = "camera" | "preview" | "analyzing" | "result" | "clarification";
 type SetupActivityLevel = "sedentario" | "moderado" | "intenso";
 type AppLanguage = "pt" | "en";
@@ -100,7 +100,6 @@ type PersistedState = {
   recentAnalyses?: RecentMealAnalysis[];
   waterIntakeMl?: number;
   onboardingDone?: boolean;
-  completedTrainingPhases?: Record<"primeiro-mes" | "segundo-mes" | "terceiro-mes", boolean>;
   firstUseAt?: string;
   previousWeight?: number;
   lastSeenAt?: string;
@@ -140,7 +139,6 @@ type UnifiedAppState = {
   recent_analyses: RecentMealAnalysis[];
   weight_log: WeightLogEntry[];
   achievements: string[];
-  completed_training_phases?: Record<"primeiro-mes" | "segundo-mes" | "terceiro-mes", boolean>;
   previous_weight?: number;
   last_seen_at?: string;
   app_language?: AppLanguage;
@@ -207,23 +205,6 @@ const LEGACY_PROFILE_KEY = "perfil_de_integracao";
 const MAX_RECENT_MEALS = 5;
 const MAX_RECENT_IMAGE_LENGTH = 150000;
 
-const trainingPhases = [
-  {
-    key: "primeiro-mes",
-    title: "PRIMEIRO MÊS",
-    instruction: "Repita uma vez o vídeo e treine de segunda, quarta, sexta, sábado",
-  },
-  {
-    key: "segundo-mes",
-    title: "SEGUNDO MÊS",
-    instruction: "Repita 3 vezes o vídeo e treine de segunda, quarta, sexta, sábado",
-  },
-  {
-    key: "terceiro-mes",
-    title: "TERCEIRO MÊS",
-    instruction: "Repita 4 vezes o vídeo e treine de segunda, quarta, sexta, sábado",
-  },
-] as const;
 
 const ANALYSIS_MESSAGES: Record<AppLanguage, string[]> = {
   pt: [
@@ -328,7 +309,6 @@ const uiText = {
     navHome: "Home",
     navMeals: "Refeições",
     navProgress: "Progresso",
-    navWorkouts: "Treinos",
     navProfile: "Perfil",
     onboardingCityLabel: "Cidade",
     onboardingCityPlaceholder: "Escreve a tua cidade",
@@ -435,7 +415,6 @@ const uiText = {
     navHome: "Home",
     navMeals: "Meals",
     navProgress: "Progress",
-    navWorkouts: "Workouts",
     navProfile: "Profile",
     onboardingCityLabel: "City",
     onboardingCityPlaceholder: "Enter your city",
@@ -719,7 +698,6 @@ function pickMockResult(seed?: string): MockMealResult {
 }
 
 function LumeFitApp() {
-  type TrainingPhaseKey = (typeof trainingPhases)[number]["key"];
   const [view, setView] = useState<ViewKey>("setup");
   const [onboardingDone, setOnboardingDone] = useState(false);
   const [showPlanPresentation, setShowPlanPresentation] = useState(false);
@@ -753,13 +731,6 @@ function LumeFitApp() {
   const [appLanguage, setAppLanguage] = useState<AppLanguage>("pt");
   const [appTheme, setAppTheme] = useState<AppTheme>("light");
   const [showMotivationNotification, setShowMotivationNotification] = useState(false);
-  const [completedTrainingPhases, setCompletedTrainingPhases] = useState<
-    Record<TrainingPhaseKey, boolean>
-  >({
-    "primeiro-mes": false,
-    "segundo-mes": false,
-    "terceiro-mes": false,
-  });
 
   const [animatedKcal, setAnimatedKcal] = useState(0);
   const [animatedProtein, setAnimatedProtein] = useState(0);
@@ -1230,7 +1201,6 @@ function LumeFitApp() {
       recent_analyses: recentAnalyses.slice(0, MAX_RECENT_MEALS),
       weight_log: weightLog,
       achievements,
-      completed_training_phases: completedTrainingPhases,
       previous_weight: previousWeight,
       last_seen_at: storageSnapshotRef.current?.last_seen_at,
       app_language: appLanguage,
@@ -1250,7 +1220,6 @@ function LumeFitApp() {
     recentAnalyses,
     waterIntakeMl,
     onboardingDone,
-    completedTrainingPhases,
     firstUseAt,
     previousWeight,
     appLanguage,
@@ -1665,7 +1634,6 @@ function LumeFitApp() {
     if (Object.keys(entriesByDay).some((day) => (entriesByDay[day] || []).length > 0)) {
       next.push("Primeiro registo concluído 🌟");
     }
-    if (streakDays >= 7) next.push("7 dias consecutivos 🔥");
     if (weeklyBars.some((day) => day.calories > 0)) next.push("Semana ativa 💚");
     if (waterIntakeMl > 0) next.push("Bebeu água hoje 💧");
     return next;
@@ -3406,7 +3374,7 @@ function LumeFitApp() {
                           <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                             {[
                               `🧂 ${t.sodium}: ${Math.round(activeResult.sodiumMg * portionMultiplier)}mg`,
-                              `ðŸ«€ ${t.fiber}: ${(activeResult.fiberG * portionMultiplier).toFixed(1)}g`,
+                              `🌾 ${t.fiber}: ${(activeResult.fiberG * portionMultiplier).toFixed(1)}g`,
                               `🍬 ${t.sugars}: ${(activeResult.sugarsG * portionMultiplier).toFixed(1)}g`,
                               `💊 ${t.vitaminA}: ${Math.round(activeResult.vitaminAPct * portionMultiplier)}% ${t.dv}`,
                               `💊 ${t.vitaminC}: ${Math.round(activeResult.vitaminCPct * portionMultiplier)}% ${t.dv}`,
@@ -3487,7 +3455,7 @@ function LumeFitApp() {
               <div className="glass-card rounded-xl p-4">
                 <h2 className="text-lg font-semibold">{t.weightHistory}</h2>
                 {weightHistory.length === 0 ? (
-                  <p className="mt-4 text-sm text-muted-foreground">{appLanguage === "en" ? "No weight logs yet â€” add your first! 🌿" : "Ainda sem registos de peso â€” adiciona o teu primeiro! 🌿"}</p>
+                  <p className="mt-4 text-sm text-muted-foreground">{appLanguage === "en" ? "No weight logs yet — add your first! 🌿" : "Ainda sem registos de peso — adiciona o teu primeiro! 🌿"}</p>
                 ) : (
                   <div className="mt-4 space-y-2">
                     {weightHistory.map((point) => {
@@ -3553,7 +3521,7 @@ function LumeFitApp() {
               <div className="mt-4 grid grid-cols-2 gap-3">
                 {(unlockedAchievements.length > 0
                   ? unlockedAchievements
-                  : ["Ainda sem dados â€” começa a registar hoje! 🌿"]
+                  : ["Ainda sem dados — começa a registar hoje! 🌿"]
                 ).map((badge) => (
                   <article
                     key={badge}
@@ -3562,67 +3530,6 @@ function LumeFitApp() {
                     {badge}
                   </article>
                 ))}
-              </div>
-            </>
-          )}
-
-          {view === "treinos" && (
-            <>
-              <h2 className="mb-3 text-lg font-semibold">Treinos</h2>
-
-              <article className="glass-card rounded-[20px] p-4">
-                <h3 className="text-sm font-semibold">Vídeo de Treino</h3>
-                <div className="mt-3 overflow-hidden rounded-[18px] border border-glass-border bg-glass">
-                  <div className="relative aspect-video w-full">
-                    <iframe
-                      title="Treino LUMEfit"
-                      src="https://www.youtube.com/embed/RTsNTYN4Jqs?rel=0&modestbranding=1"
-                      className="absolute inset-0 h-full w-full"
-                      loading="lazy"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      referrerPolicy="strict-origin-when-cross-origin"
-                      allowFullScreen
-                    />
-                  </div>
-                </div>
-              </article>
-
-              <div className="mt-4 space-y-3">
-                {trainingPhases.map((phase) => {
-                  const isDone = completedTrainingPhases[phase.key];
-                  return (
-                    <article
-                      key={phase.key}
-                      className={`glass-card rounded-[20px] p-4 transition-all ${
-                        isDone ? "border-glass-border/70 bg-muted/35 opacity-70" : ""
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                            {phase.title}
-                          </p>
-                          <p className="mt-2 text-sm text-foreground">{phase.instruction}</p>
-                        </div>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={isDone ? "secondary" : "default"}
-                          className="shrink-0 rounded-xl"
-                          onClick={() =>
-                            setCompletedTrainingPhases((prev) => ({
-                              ...prev,
-                              [phase.key]: !prev[phase.key],
-                            }))
-                          }
-                        >
-                          <Check className="h-4 w-4" />
-                          {isDone ? "Concluído" : "Certo"}
-                        </Button>
-                      </div>
-                    </article>
-                  );
-                })}
               </div>
 
             </>
@@ -3634,7 +3541,7 @@ function LumeFitApp() {
                 <div className="mx-auto h-20 w-20 rounded-full border-2 border-brand-accent-2 bg-glass" />
                 <h2 className="mt-3 text-xl font-semibold">{profile.name || "Utilizadora"}</h2>
                 <p className="text-sm text-muted-foreground">
-                  {profile.weight}kg → {profile.targetWeight}kg â€¢ {profile.city}
+                  {profile.weight}kg → {profile.targetWeight}kg • {profile.city}
                 </p>
               </div>
 
@@ -3754,7 +3661,6 @@ function LumeFitApp() {
               { key: "home", label: t.navHome, icon: Home },
               { key: "refeicoes", label: t.navMeals, icon: UtensilsCrossed },
               { key: "progresso", label: t.navProgress, icon: Flame },
-              { key: "treinos", label: t.navWorkouts, icon: Dumbbell },
               { key: "perfil", label: t.navProfile, icon: CircleUserRound },
             ].map((item) => {
             const Icon = item.icon;
