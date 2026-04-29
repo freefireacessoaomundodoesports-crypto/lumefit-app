@@ -35,7 +35,9 @@ export const cities = ["Maputo", "Beira", "Nampula", "Quelimane", "Tete", "Outro
 export const weeklyGoals = [
   "Perder 0.5kg/semana",
   "Perder 1kg/semana",
-  "Perder 1.5kg/semana",
+  "Manter o peso",
+  "Ganhar 0.5kg/semana",
+  "Ganhar 1kg/semana",
 ];
 
 export const activityLevels = [

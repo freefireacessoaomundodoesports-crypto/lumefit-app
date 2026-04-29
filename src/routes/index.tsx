@@ -634,8 +634,16 @@ function calcGoal(weight: number, height: number, age: number, activity: string,
   const bmr = 10 * weight + 6.25 * height - 5 * age - 120;
   const activityFactor =
     activity === "Fico muito em casa" ? 1.2 : activity === "Caminho um pouco" ? 1.35 : 1.5;
-  const deficit = weeklyGoal.includes("1.5") ? 500 : weeklyGoal.includes("1kg") ? 350 : 220;
-  return Math.max(1200, Math.round(bmr * activityFactor - deficit));
+  const maintenance = bmr * activityFactor;
+  
+  let adjustment = 0;
+  if (weeklyGoal.includes("Perder")) {
+    adjustment = weeklyGoal.includes("1kg") ? -350 : -220;
+  } else if (weeklyGoal.includes("Ganhar")) {
+    adjustment = weeklyGoal.includes("1kg") ? 350 : 220;
+  }
+  
+  return Math.max(1200, Math.round(maintenance + adjustment));
 }
 
 function calcHydrationGoal(weight: number, activity: string) {
@@ -1867,6 +1875,7 @@ function LumeFitApp() {
 
       setGeneratedPlan(nextPlan);
       setShowPlanPresentation(true);
+      setView("pending_plan");
       
       setTimeout(() => {
         planResultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1891,6 +1900,7 @@ function LumeFitApp() {
         weight: profile.weight,
         height: profile.height,
         target_weight: profile.targetWeight,
+        weekly_goal: profile.weeklyGoal,
         activity_level: onboardingActivityMap[setupActivity].profileValue,
         status: profile.role === 'admin' ? 'ativo' : 'pendente'
       }).eq('id', session.user.id);
@@ -2402,8 +2412,17 @@ function LumeFitApp() {
     if (session) {
       void (async () => {
         await supabase.from('profiles').update({
+          name: profile.name,
+          age: profile.age,
+          city: profile.city,
+          weight: profile.weight,
+          height: profile.height,
+          target_weight: profile.targetWeight,
+          weekly_goal: profile.weeklyGoal,
+          activity_level: onboardingActivityMap[setupActivity].profileValue,
           calorie_goal: generatedPlan.calorieGoal,
           hydration_goal_ml: generatedPlan.hydrationGoalMl,
+          macro_goals: generatedPlan.macroGoals,
           status: 'ativo'
         }).eq('id', session.user.id);
         
@@ -2751,6 +2770,44 @@ function LumeFitApp() {
               </div>
 
               <div>
+                <p className="mb-3 text-sm font-semibold uppercase tracking-[0.08em]">Teu Objetivo</p>
+                <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Objetivo">
+                  {[
+                    { label: "Perder Peso", icon: Flame, value: weeklyGoals[1] },
+                    { label: "Ganhar Peso", icon: Trophy, value: weeklyGoals[weeklyGoals.length - 1] },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    const active = profile.weeklyGoal.startsWith(item.label.split(" ")[0]);
+                    return (
+                      <button
+                        type="button"
+                        key={item.label}
+                        onClick={() => setProfile(p => ({ ...p, weeklyGoal: item.value }))}
+                        role="radio"
+                        aria-checked={active}
+                        className={`glass-card rounded-2xl p-4 text-left transition-all duration-200 active:scale-95 ${
+                          active ? "border-brand-accent-2 shadow-[inset_0_0_0_2px_var(--color-brand-accent-2)] bg-brand-accent-1/5" : ""
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <Icon className={`h-6 w-6 ${active ? "text-brand-accent-2" : "text-muted-foreground"}`} />
+                          {active ? (
+                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-accent-2 text-white">
+                              <Check className="h-4 w-4" />
+                            </span>
+                          ) : (
+                            <span className="h-6 w-6 rounded-full border border-brand-accent-1/35" />
+                          )}
+                        </div>
+                        <p className={`mt-3 text-2xl font-semibold ${active ? "text-brand-accent-2" : ""}`}>{item.label}</p>
+                        <p className="text-sm text-muted-foreground">Focar em {item.label.toLowerCase()}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
                 <p className="mb-3 text-sm font-semibold uppercase tracking-[0.08em]">Nível de atividade</p>
                 <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Nível de atividade">
                   {[
@@ -2820,14 +2877,14 @@ function LumeFitApp() {
 
               <div className="space-y-3 pt-2">
                 <Button 
-                  onClick={handleOnboardingSubmit} 
+                  onClick={onboardingDone ? handleGeneratePlan : handleOnboardingSubmit} 
                   disabled={authLoading}
                   className="h-14 w-full rounded-[24px] text-lg bg-brand-accent-2 font-bold"
                 >
                   {authLoading ? (
                     <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
-                    <>Submeter Dados para Aprovação</>
+                    <>{onboardingDone ? "Calcular Novo Plano com IA ✨" : "Submeter Dados para Aprovação"}</>
                   )}
                 </Button>
                 <p className="px-2 text-center text-sm text-muted-foreground">
@@ -2846,9 +2903,11 @@ function LumeFitApp() {
               ✨
             </div>
             <div className="space-y-2">
-              <h2 className="text-3xl font-bold">Perfil Aprovado!</h2>
+              <h2 className="text-3xl font-bold">{onboardingDone ? "IA a trabalhar..." : "Perfil Aprovado!"}</h2>
               <p className="text-muted-foreground">
-                A tua conta foi validada. Agora a nossa IA está pronta para criar o teu plano personalizado.
+                {onboardingDone 
+                  ? "A nossa IA está a recalcular o teu plano com base nos novos dados que forneceste." 
+                  : "A tua conta foi validada. Agora a nossa IA está pronta para criar o teu plano personalizado."}
               </p>
             </div>
 
