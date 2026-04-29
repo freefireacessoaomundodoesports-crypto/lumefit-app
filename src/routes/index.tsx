@@ -1342,32 +1342,37 @@ function LumeFitApp() {
 
         if (error) throw error;
 
-        if (aiResult.duvida && !userClarificationResponse) {
-          setAiClarificationQuestion(aiResult.duvida);
+        if (aiResult.status === "DUVIDA" && !userClarificationResponse) {
+          setAiClarificationQuestion(aiResult.perguntas_clarificacao?.[0] || "Pode detalhar melhor os ingredientes?");
           setMealStage("clarification");
           return;
         }
 
+        const analise = aiResult.analise || {};
         const matched: MockMealResult = {
           id: `ai-${Date.now()}`,
-          mealName: aiResult.prato,
-          cuisineTag: aiResult.origem,
-          confidence: parseInt(aiResult.precisao) || 95,
-          estimatedKcal: aiResult.total_kcal,
-          protein: aiResult.macros.p,
-          carbs: aiResult.macros.c,
-          fat: aiResult.macros.g,
-          dailyGoalPercent: Math.round((aiResult.total_kcal / profile.calorieGoal) * 100),
-          sodiumMg: aiResult.sodiumMg || 450,
-          fiberG: aiResult.fiberG || 4.5,
-          sugarsG: aiResult.sugarsG || 2.1,
-          vitaminAPct: aiResult.vitaminAPct || 15,
-          vitaminCPct: aiResult.vitaminCPct || 20,
-          ironPct: aiResult.ironPct || 10,
-          calciumPct: aiResult.calciumPct || 8,
+          mealName: analise.prato_nome || "Prato não identificado",
+          cuisineTag: analise.pais_origem || "Local",
+          confidence: analise.confianca_score || 95,
+          estimatedKcal: analise.total_kcal || 0,
+          protein: parseFloat(analise.macros?.proteina) || 0,
+          carbs: parseFloat(analise.macros?.carbs) || 0,
+          fat: parseFloat(analise.macros?.gordura) || 0,
+          dailyGoalPercent: Math.round((analise.total_kcal / profile.calorieGoal) * 100) || 0,
+          sodiumMg: analise.sodiumMg || 450,
+          fiberG: analise.fiberG || 4.5,
+          sugarsG: analise.sugarsG || 2.1,
+          vitaminAPct: analise.vitaminAPct || 15,
+          vitaminCPct: analise.vitaminCPct || 20,
+          ironPct: analise.ironPct || 10,
+          calciumPct: analise.calciumPct || 8,
           imageSeed: "ai",
-          ingredients: aiResult.ingredientes.map((i: any) => ({ name: i.nome, calories: i.kcal, note: i.note })),
-          insights: aiResult.insights,
+          ingredients: (analise.ingredientes_detalhados || []).map((i: any) => ({ 
+            name: i.item, 
+            calories: i.kcal, 
+            note: i.obs 
+          })),
+          insights: aiResult.insights_saude ? [aiResult.insights_saude] : [],
         };
 
         setAnalysisProgress(100);
