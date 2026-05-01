@@ -1871,7 +1871,8 @@ function LumeFitApp() {
       });
 
       if (error) throw error;
-
+      if (aiResult?.error) throw new Error(aiResult.message || "Erro na IA ao gerar plano.");
+      if (!aiResult?.calorieGoal || !aiResult?.macroGoals) throw new Error("A IA devolveu um formato inválido. Tente novamente.");
       const nextPlan: GeneratedPlan = {
         summary: aiResult.summary,
         calorieGoal: aiResult.calorieGoal,
@@ -2798,9 +2799,10 @@ function LumeFitApp() {
 
                       <div>
                         <p className="mb-3 text-sm font-semibold uppercase tracking-[0.08em]">Teu Objetivo</p>
-                        <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Objetivo">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" role="radiogroup" aria-label="Objetivo">
                           {[
                             { label: "Perder Peso", icon: Flame, value: weeklyGoals[1] },
+                            { label: "Manter Peso", icon: Check, value: weeklyGoals[2] },
                             { label: "Ganhar Peso", icon: Trophy, value: weeklyGoals[weeklyGoals.length - 1] },
                           ].map((item) => {
                             const Icon = item.icon;
