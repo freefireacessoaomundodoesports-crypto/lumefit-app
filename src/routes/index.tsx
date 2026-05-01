@@ -635,14 +635,14 @@ function calcGoal(weight: number, height: number, age: number, activity: string,
   const activityFactor =
     activity === "Fico muito em casa" ? 1.2 : activity === "Caminho um pouco" ? 1.35 : 1.5;
   const maintenance = bmr * activityFactor;
-  
+
   let adjustment = 0;
   if (weeklyGoal.includes("Perder")) {
     adjustment = weeklyGoal.includes("1kg") ? -350 : -220;
   } else if (weeklyGoal.includes("Ganhar")) {
     adjustment = weeklyGoal.includes("1kg") ? 350 : 220;
   }
-  
+
   return Math.max(1200, Math.round(maintenance + adjustment));
 }
 
@@ -787,7 +787,7 @@ function LumeFitApp() {
           password: authPassword,
         });
         if (error) throw error;
-        
+
         if (data.user) {
           await supabase.from('profiles').insert({
             id: data.user.id,
@@ -823,7 +823,7 @@ function LumeFitApp() {
     setPreviewImage(item.image);
     setActiveResult(pickMockResult(item.name));
     setMealStage("result");
-    
+
     localStorage.removeItem("lume_offline_queue");
     setPendingAnalyses([]);
   }, [appLanguage]);
@@ -1011,10 +1011,10 @@ function LumeFitApp() {
 
   useEffect(() => {
     if (!session) return;
-    
+
     const fetchUserData = async () => {
       const todayKey = getDateKey();
-      
+
       // 1. Buscar Perfil
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
@@ -1051,15 +1051,15 @@ function LumeFitApp() {
         };
         userRole = profileData.role || 'user';
         userStatus = profileData.status || 'setup';
-        onboardingComplete = userStatus !== 'setup'; 
-        
+        onboardingComplete = userStatus !== 'setup';
+
         if (profileData.expiry_date) {
           const expDate = new Date(profileData.expiry_date).getTime();
           if (Date.now() > expDate) {
             hasExpired = true;
           }
         }
-        
+
         setProfile(currentProfile);
       }
 
@@ -1132,7 +1132,7 @@ function LumeFitApp() {
       } else {
         setView("home");
       }
-      
+
       setOnboardingDone(onboardingComplete);
       setShowSplash(false);
     };
@@ -1150,7 +1150,7 @@ function LumeFitApp() {
   const handleUpdateWater = async (amount: number) => {
     const next = Math.max(0, waterIntakeMl + amount);
     setWaterIntakeMl(next);
-    
+
     if (session) {
       if (amount > 0) {
         await supabase.from('water_logs').insert({
@@ -1167,7 +1167,7 @@ function LumeFitApp() {
           .gte('timestamp', todayKey + 'T00:00:00')
           .order('timestamp', { ascending: false })
           .limit(1);
-        
+
         if (data && data[0]) {
           await supabase.from('water_logs').delete().eq('id', data[0].id);
         }
@@ -1177,7 +1177,7 @@ function LumeFitApp() {
 
   useEffect(() => {
     if (!session || !onboardingDone) return;
-    
+
     const saveProfile = async () => {
       await supabase.from('profiles').update({
         name: profile.name,
@@ -1215,12 +1215,12 @@ function LumeFitApp() {
       app_theme: appTheme,
     };
     updateStorageSnapshot(nextState);
-    
+
     const timeoutId = window.setTimeout(() => {
       writeState(nextState);
     }, 800);
     timeoutIdsRef.current.push(timeoutId);
-    
+
     return () => window.clearTimeout(timeoutId);
   }, [
     profile,
@@ -1340,15 +1340,16 @@ function LumeFitApp() {
     const runAnalysis = async () => {
       if (!previewImageBase64) return;
       try {
-        const { data: aiResult, error } = await supabase.functions.invoke('lumefit-ai', {
-          body: { 
-            type: 'analysis', 
+        const { data: aiResult, error } = await supabase.functions.invoke('analyze-meal', {
+          body: {
+            type: 'analysis',
             image: previewImageBase64,
-            data: { context: userClarificationResponse } 
+            data: { context: userClarificationResponse }
           }
         });
 
         if (error) throw error;
+        if (aiResult?.error) throw new Error(aiResult.message || "Erro interno na análise da IA.");
 
         if (aiResult.status === "DUVIDA" && !userClarificationResponse) {
           setAiClarificationQuestion(aiResult.perguntas_clarificacao?.[0] || "Pode detalhar melhor os ingredientes?");
@@ -1359,7 +1360,7 @@ function LumeFitApp() {
         // Se chegar aqui e ainda for DUVIDA (ex: usuário pulou mas a IA insistiu),
         // tentamos extrair o que houver na 'analise' ou damos erro amigável se estiver vazio.
         if (aiResult.status === "DUVIDA" && (!aiResult.analise || !aiResult.analise.total_kcal)) {
-           throw new Error("A IA não conseguiu identificar o prato mesmo com a sua ajuda. Tente uma foto mais clara.");
+          throw new Error("A IA não conseguiu identificar o prato mesmo com a sua ajuda. Tente uma foto mais clara.");
         }
 
         const analise = aiResult.analise || {};
@@ -1368,11 +1369,11 @@ function LumeFitApp() {
           mealName: analise.prato_nome || "Prato não identificado",
           cuisineTag: analise.pais_origem || "Local",
           confidence: analise.confianca_score || 95,
-          estimatedKcal: analise.total_kcal || 0,
-          protein: parseFloat(analise.macros?.proteina) || 0,
-          carbs: parseFloat(analise.macros?.carbs) || 0,
-          fat: parseFloat(analise.macros?.gordura) || 0,
-          dailyGoalPercent: Math.round((analise.total_kcal / profile.calorieGoal) * 100) || 0,
+          estimatedKcal: parseFloat(String(analise.total_kcal)) || 0,
+          protein: parseFloat(String(analise.macros?.proteina)) || 0,
+          carbs: parseFloat(String(analise.macros?.carbs)) || 0,
+          fat: parseFloat(String(analise.macros?.gordura)) || 0,
+          dailyGoalPercent: Math.round((parseFloat(String(analise.total_kcal)) / profile.calorieGoal) * 100) || 0,
           sodiumMg: analise.sodiumMg || 450,
           fiberG: analise.fiberG || 4.5,
           sugarsG: analise.sugarsG || 2.1,
@@ -1381,10 +1382,10 @@ function LumeFitApp() {
           ironPct: analise.ironPct || 10,
           calciumPct: analise.calciumPct || 8,
           imageSeed: "ai",
-          ingredients: (analise.ingredientes_detalhados || []).map((i: any) => ({ 
-            name: i.item, 
-            calories: i.kcal, 
-            note: i.obs 
+          ingredients: (analise.ingredientes_detalhados || []).map((i: any) => ({
+            name: i.item,
+            calories: parseFloat(String(i.kcal)) || 0,
+            note: i.obs
           })),
           insights: aiResult.insights_saude ? [aiResult.insights_saude] : [],
         };
@@ -1722,7 +1723,7 @@ function LumeFitApp() {
         const newQueue = [pendingItem, ...pendingAnalyses];
         setPendingAnalyses(newQueue);
         localStorage.setItem("lume_offline_queue", JSON.stringify(newQueue));
-        
+
         setToastMessage(appLanguage === "en" ? "📥 Offline! Image saved to queue." : "📥 Sem internet! Foto guardada na fila.");
         setShowToast(true);
         setManagedTimeout(() => setShowToast(false), 3000);
@@ -1738,7 +1739,7 @@ function LumeFitApp() {
     const fileUrl = URL.createObjectURL(file);
     previewObjectUrlRef.current = fileUrl;
     setPreviewImage(fileUrl);
-    
+
     // Converter para base64 para a IA
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -1793,7 +1794,7 @@ function LumeFitApp() {
       }
 
       const baseAnalysis = buildRecentAnalysis(activeResult, kcal, compressedImage);
-      
+
       // Salvar no Supabase
       if (session) {
         const { error: insertError } = await supabase.from('meals').insert({
@@ -1868,9 +1869,9 @@ function LumeFitApp() {
       const { data: aiResult, error } = await supabase.functions.invoke('lumefit-ai', {
         body: { type: 'onboarding', data: profile }
       });
-      
+
       if (error) throw error;
-      
+
       const nextPlan: GeneratedPlan = {
         summary: aiResult.summary,
         calorieGoal: aiResult.calorieGoal,
@@ -1882,7 +1883,7 @@ function LumeFitApp() {
       setGeneratedPlan(nextPlan);
       setShowPlanPresentation(true);
       setView("pending_plan");
-      
+
       setTimeout(() => {
         planResultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 100);
@@ -1910,7 +1911,7 @@ function LumeFitApp() {
         activity_level: onboardingActivityMap[setupActivity].profileValue,
         status: profile.role === 'admin' ? 'ativo' : 'pendente'
       }).eq('id', session.user.id);
-      
+
       setView(profile.role === 'admin' ? "home" : "waiting_approval");
       setToastMessage("Perfil enviado para aprovação! ✨");
       setShowToast(true);
@@ -1942,41 +1943,41 @@ function LumeFitApp() {
       const text =
         appLanguage === "en"
           ? {
-              subtitle: "Consistency that transforms",
-              hero: `Warrior ${imageUserName}, keep going strong!`,
-              progressA: "DAILY",
-              progressB: "PROGRESS",
-              calories: "Calories",
-              weightSubtitle: "Real weight evolution",
-              weightHero: `Congrats ${imageUserName}, your progress is real!`,
-              weightA: "WEIGHT",
-              weightB: "PROGRESS",
-              prev: "Previous weight",
-              current: "Current weight",
-              target: "Target weight",
-              weightGoal: "Weight loss goal",
-              completed: "completed",
-              motivationA: "Every workout and every meal gets you closer to your dream. ✨",
-              motivationB: `Keep it up, ${imageUserName} â€” your effort is paying off! ✨`,
-            }
+            subtitle: "Consistency that transforms",
+            hero: `Warrior ${imageUserName}, keep going strong!`,
+            progressA: "DAILY",
+            progressB: "PROGRESS",
+            calories: "Calories",
+            weightSubtitle: "Real weight evolution",
+            weightHero: `Congrats ${imageUserName}, your progress is real!`,
+            weightA: "WEIGHT",
+            weightB: "PROGRESS",
+            prev: "Previous weight",
+            current: "Current weight",
+            target: "Target weight",
+            weightGoal: "Weight loss goal",
+            completed: "completed",
+            motivationA: "Every workout and every meal gets you closer to your dream. ✨",
+            motivationB: `Keep it up, ${imageUserName} â€” your effort is paying off! ✨`,
+          }
           : {
-              subtitle: "Consistência que transforma",
-              hero: `Guerreira ${imageUserName}, segue firme no teu foco!`,
-              progressA: "PROGRESSO",
-              progressB: "DIÁRIO",
-              calories: "Calorias",
-              weightSubtitle: "Evolução real de peso",
-              weightHero: `Parabéns ${imageUserName}, a tua perda de peso é progresso real!`,
-              weightA: "PESO",
-              weightB: "EM PROGRESSO",
-              prev: "Peso anterior",
-              current: "Peso atual",
-              target: "Peso desejado",
-              weightGoal: "Meta de perda de peso",
-              completed: "concluído",
-              motivationA: "Cada treino e cada refeição aproxima-te do teu sonho. ✨",
-              motivationB: `Continua assim, ${imageUserName} â€” o teu esforço está a dar resultado! ✨`,
-            };
+            subtitle: "Consistência que transforma",
+            hero: `Guerreira ${imageUserName}, segue firme no teu foco!`,
+            progressA: "PROGRESSO",
+            progressB: "DIÁRIO",
+            calories: "Calorias",
+            weightSubtitle: "Evolução real de peso",
+            weightHero: `Parabéns ${imageUserName}, a tua perda de peso é progresso real!`,
+            weightA: "PESO",
+            weightB: "EM PROGRESSO",
+            prev: "Peso anterior",
+            current: "Peso atual",
+            target: "Peso desejado",
+            weightGoal: "Meta de perda de peso",
+            completed: "concluído",
+            motivationA: "Cada treino e cada refeição aproxima-te do teu sonho. ✨",
+            motivationB: `Continua assim, ${imageUserName} â€” o teu esforço está a dar resultado! ✨`,
+          };
       const canvas = document.createElement("canvas");
       canvas.width = 1080;
       canvas.height = 1920;
@@ -2369,7 +2370,7 @@ function LumeFitApp() {
           ? "lumefit-progress.png"
           : "lumefit-progresso.png",
       {
-      type: "image/png",
+        type: "image/png",
       },
     );
     await navigator.share({
@@ -2431,7 +2432,7 @@ function LumeFitApp() {
           macro_goals: generatedPlan.macroGoals,
           status: 'ativo'
         }).eq('id', session.user.id);
-        
+
         setView("home");
       })();
     } else {
@@ -2454,26 +2455,26 @@ function LumeFitApp() {
   if (session === undefined) {
     return (
       <div className="fixed inset-0 bg-white flex flex-col items-center justify-center z-[200]">
-         <div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in duration-700">
-            <div className="w-32 h-32 rounded-3xl bg-white p-4 shadow-2xl flex items-center justify-center animate-bounce-slow">
-              <img src="/lume-logo.png" alt="LUMEfit" className="w-full h-full object-contain" />
+        <div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in duration-700">
+          <div className="w-32 h-32 rounded-3xl bg-white p-4 shadow-2xl flex items-center justify-center animate-bounce-slow">
+            <img src="/lume-logo.png" alt="LUMEfit" className="w-full h-full object-contain" />
+          </div>
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-48 h-1.5 bg-muted rounded-full overflow-hidden relative">
+              <div className="absolute inset-0 bg-brand-accent-2 animate-progress-indefinite" />
             </div>
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-48 h-1.5 bg-muted rounded-full overflow-hidden relative">
-                <div className="absolute inset-0 bg-brand-accent-2 animate-progress-indefinite" />
-              </div>
-              <p className="text-[10px] text-brand-accent-2 font-bold uppercase tracking-[0.2em] animate-pulse">
-                Iniciando LUMEfit...
-              </p>
-            </div>
-         </div>
+            <p className="text-[10px] text-brand-accent-2 font-bold uppercase tracking-[0.2em] animate-pulse">
+              Iniciando LUMEfit...
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-background">
-     {!session ? (
+      {!session ? (
         <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-foreground animate-in fade-in duration-500">
           <div className="w-full max-w-sm space-y-8">
             <div className="text-center space-y-4">
@@ -2488,13 +2489,13 @@ function LumeFitApp() {
 
             <div className="glass-card rounded-[32px] p-8 shadow-xl border border-white/20">
               <div className="flex p-1 bg-muted/50 rounded-2xl mb-8">
-                <button 
+                <button
                   onClick={() => { setAuthView("login"); setAuthError(null); }}
                   className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${authView === "login" ? "bg-white text-brand-accent-2 shadow-sm" : "text-muted-foreground"}`}
                 >
                   <LogIn className="w-4 h-4" /> Entrar
                 </button>
-                <button 
+                <button
                   onClick={() => { setAuthView("register"); setAuthError(null); }}
                   className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${authView === "register" ? "bg-white text-brand-accent-2 shadow-sm" : "text-muted-foreground"}`}
                 >
@@ -2510,8 +2511,8 @@ function LumeFitApp() {
                 )}
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Email</label>
-                  <input 
-                    type="email" 
+                  <input
+                    type="email"
                     value={authEmail}
                     onChange={(e) => setAuthEmail(e.target.value)}
                     className="w-full h-14 rounded-2xl bg-muted/30 border-none px-5 focus:ring-2 focus:ring-brand-accent-2 transition-all outline-none font-medium"
@@ -2521,8 +2522,8 @@ function LumeFitApp() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Palavra-passe</label>
-                  <input 
-                    type="password" 
+                  <input
+                    type="password"
                     value={authPassword}
                     onChange={(e) => setAuthPassword(e.target.value)}
                     className="w-full h-14 rounded-2xl bg-muted/30 border-none px-5 focus:ring-2 focus:ring-brand-accent-2 transition-all outline-none font-medium"
@@ -2530,8 +2531,8 @@ function LumeFitApp() {
                     required
                   />
                 </div>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   disabled={authLoading}
                   className="w-full h-14 rounded-2xl bg-brand-accent-2 hover:bg-brand-accent-2/90 text-white font-bold text-lg shadow-lg shadow-brand-accent-2/20 transition-all active:scale-[0.98]"
                 >
@@ -2543,7 +2544,7 @@ function LumeFitApp() {
                 </Button>
               </form>
             </div>
-            
+
             <p className="text-center text-xs text-muted-foreground">
               Ao entrar, concordas com os nossos termos de serviço.
             </p>
@@ -2554,9 +2555,9 @@ function LumeFitApp() {
           {showSplash ? (
             <div className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center transition-opacity duration-500">
               <div className="flex flex-col items-center justify-center animate-in zoom-in fade-in duration-700">
-                <img 
-                  src="/lume-logo.png" 
-                  alt="LUMEfit Logo" 
+                <img
+                  src="/lume-logo.png"
+                  alt="LUMEfit Logo"
                   className="w-56 h-56 object-contain drop-shadow-sm animate-[pulse_2s_ease-in-out_infinite]"
                 />
                 <div className="mt-8 flex flex-col items-center gap-3">
@@ -2570,1468 +2571,1464 @@ function LumeFitApp() {
           ) : (
             <section className="mx-auto flex min-h-screen w-full max-w-lg flex-col bg-background px-4 pt-16 pb-28">
 
-      {showInstallPrompt && (
-        <div className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="w-full max-w-sm glass-card rounded-[32px] p-8 text-center space-y-6 animate-in zoom-in-95 duration-500">
-            <div className="mx-auto w-20 h-20 rounded-2xl bg-white p-3 shadow-xl">
-              <img src="/lume-logo.png" alt="LUMEfit" className="w-full h-full object-contain" />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-xl font-bold">LUMEfit no teu telemóvel</h3>
-              <p className="text-sm text-muted-foreground">
-                Instala o app para uma experiência mais rápida, acesso offline e ecrã inteiro.
-              </p>
-            </div>
-            <div className="flex flex-col gap-3 pt-2">
-              <Button 
-                onClick={handleInstallClick}
-                className="h-14 rounded-2xl bg-brand-accent-2 hover:bg-brand-accent-2/90 text-white font-bold text-lg shadow-lg shadow-brand-accent-2/20"
-              >
-                📲 Instalar App
-              </Button>
-              <Button 
-                variant="ghost" 
-                onClick={() => setShowInstallPrompt(false)}
-                className="h-12 rounded-xl text-muted-foreground font-medium"
-              >
-                Continuar na Web
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="fixed left-4 top-4 z-40 flex items-center gap-4">
-        {view !== "setup" && (
-          <div className="relative">
-            <Button
-              size="icon"
-              variant="outline"
-              className="h-10 w-10 rounded-xl bg-glass"
-              onClick={() => setShowTopMenu((prev) => !prev)}
-              aria-label={t.menuOpenAria}
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-
-            {showTopMenu ? (
-              <div className="glass-card absolute left-0 top-12 min-w-[220px] rounded-2xl p-2">
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-brand-accent-3/30"
-                  onClick={() => {
-                    setShareMode("general");
-                    setShareImageUrl(null);
-                    setShowShareSheet(true);
-                    setShowTopMenu(false);
-                  }}
-                >
-                  <Share2 className="h-4 w-4" />
-                  {t.menuShare}
-                </button>
-                <button
-                  type="button"
-                  className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-brand-accent-3/30"
-                  onClick={() => {
-                    setShowSettingsSheet(true);
-                    setShowTopMenu(false);
-                  }}
-                >
-                  <Sparkles className="h-4 w-4" />
-                  {t.menuSettings}
-                </button>
-                
-                {profile.role === 'admin' && (
-                  <button
-                    type="button"
-                    className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-brand-accent-3/30 text-brand-accent-2 font-bold"
-                    onClick={() => {
-                      setIsAdminOpen(true);
-                      setShowTopMenu(false);
-                    }}
-                  >
-                    <CircleUserRound className="h-4 w-4" />
-                    Painel Admin
-                  </button>
-                )}
-              </div>
-            ) : null}
-          </div>
-        )}
-
-      </div>
-
-      {view === "setup" && (
-        <section className={shellClass}>
-          <div className="glass-card rounded-[24px] p-0">
-            <div className="flex items-center justify-between border-b border-glass-border/70 px-4 py-3">
-              <button
-                type="button"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-glass-border bg-glass"
-                onClick={showComingSoonToast}
-              >
-                ✕
-              </button>
-              <span className="h-10 w-10" />
-              <span className="h-10 w-10" />
-            </div>
-
-            <div className="space-y-5 p-4">
-              <div className="text-center">
-                <h1 className="text-5xl font-bold leading-tight text-foreground">
-                  Seu corpo, sua <span className="text-brand-accent-2">jornada.</span>
-                </h1>
-                <p className="mt-4 text-lg text-muted-foreground">
-                  Vamos criar um plano que respeita seu ritmo, sua rotina e sua essência.
-                </p>
-              </div>
-
-              <div>
-                <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">{t.onboardingCityLabel}</p>
-                <Input
-                  type="text"
-                  placeholder={t.onboardingCityPlaceholder}
-                  value={profile.city}
-                  onChange={(e) => setProfile((p) => ({ ...p, city: e.target.value }))}
-                  className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-xl font-semibold"
-                />
-              </div>
-
-              <div>
-                <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">{t.onboardingNameLabel}</p>
-                <Input
-                  type="text"
-                  placeholder={t.onboardingNamePlaceholder}
-                  value={profile.name}
-                  onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
-                  className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-xl font-semibold"
-                />
-              </div>
-
-              <article className="glass-card rounded-[20px] p-3">
-                <div className="relative overflow-hidden rounded-[18px] border border-glass-border/80 bg-gradient-to-b from-brand-accent-1/75 to-brand-accent-2/95 p-6 text-center text-primary-foreground">
-                  <div className="mx-auto flex h-44 w-44 items-center justify-center rounded-full bg-brand-accent-2/60 shadow-[inset_0_0_0_1px_var(--color-glass-border)]">
-                    <div>
-                      <p className="text-5xl">💚</p>
-                      <p className="mt-2 text-4xl font-semibold">Saúde</p>
-                      <p className="text-lg opacity-90">bem-estar</p>
+              {showInstallPrompt && (
+                <div className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
+                  <div className="w-full max-w-sm glass-card rounded-[32px] p-8 text-center space-y-6 animate-in zoom-in-95 duration-500">
+                    <div className="mx-auto w-20 h-20 rounded-2xl bg-white p-3 shadow-xl">
+                      <img src="/lume-logo.png" alt="LUMEfit" className="w-full h-full object-contain" />
                     </div>
-                  </div>
-                  <p className="mt-4 text-sm tracking-[0.18em] text-primary-foreground/90">
-                    ● IA ATIVA â€¢ ANALISANDO BIOTIPO
-                  </p>
-                </div>
-              </article>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">{t.onboardingCurrentWeightLabel}</p>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={profile.weight || ""}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(",", ".");
-                      if (val === "" || !isNaN(Number(val))) {
-                        setProfile((p) => ({ ...p, weight: val === "" ? 0 : Number(val) }));
-                      }
-                    }}
-                    className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-2xl font-semibold"
-                  />
-                </div>
-                <div>
-                  <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">{t.onboardingHeightLabel}</p>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={profile.height || ""}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(",", ".");
-                      if (val === "" || !isNaN(Number(val))) {
-                        setProfile((p) => ({ ...p, height: val === "" ? 0 : Number(val) }));
-                      }
-                    }}
-                    className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-2xl font-semibold"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">{t.onboardingTargetWeightLabel}</p>
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  value={profile.targetWeight || ""}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(",", ".");
-                    if (val === "" || !isNaN(Number(val))) {
-                      setProfile((p) => ({ ...p, targetWeight: val === "" ? 0 : Number(val) }));
-                    }
-                  }}
-                  className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-2xl font-semibold"
-                />
-              </div>
-
-              <div>
-                <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">Sua idade</p>
-                <div className="glass-card flex items-center justify-between rounded-2xl px-3 py-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setProfile((p) => ({ ...p, age: Math.max(16, p.age - 1) }))}
-                    className="h-12 w-12 rounded-xl"
-                  >
-                    −
-                  </Button>
-                  <p className="text-4xl font-bold">{profile.age}</p>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setProfile((p) => ({ ...p, age: Math.min(75, p.age + 1) }))}
-                    className="h-12 w-12 rounded-xl"
-                  >
-                    +
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <p className="mb-3 text-sm font-semibold uppercase tracking-[0.08em]">Teu Objetivo</p>
-                <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Objetivo">
-                  {[
-                    { label: "Perder Peso", icon: Flame, value: weeklyGoals[1] },
-                    { label: "Ganhar Peso", icon: Trophy, value: weeklyGoals[weeklyGoals.length - 1] },
-                  ].map((item) => {
-                    const Icon = item.icon;
-                    const active = profile.weeklyGoal.startsWith(item.label.split(" ")[0]);
-                    return (
-                      <button
-                        type="button"
-                        key={item.label}
-                        onClick={() => setProfile(p => ({ ...p, weeklyGoal: item.value }))}
-                        role="radio"
-                        aria-checked={active}
-                        className={`glass-card rounded-2xl p-4 text-left transition-all duration-200 active:scale-95 ${
-                          active ? "border-brand-accent-2 shadow-[inset_0_0_0_2px_var(--color-brand-accent-2)] bg-brand-accent-1/5" : ""
-                        }`}
+                    <div className="space-y-2">
+                      <h3 className="text-xl font-bold">LUMEfit no teu telemóvel</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Instala o app para uma experiência mais rápida, acesso offline e ecrã inteiro.
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-3 pt-2">
+                      <Button
+                        onClick={handleInstallClick}
+                        className="h-14 rounded-2xl bg-brand-accent-2 hover:bg-brand-accent-2/90 text-white font-bold text-lg shadow-lg shadow-brand-accent-2/20"
                       >
-                        <div className="flex items-center justify-between">
-                          <Icon className={`h-6 w-6 ${active ? "text-brand-accent-2" : "text-muted-foreground"}`} />
-                          {active ? (
-                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-accent-2 text-white">
-                              <Check className="h-4 w-4" />
-                            </span>
-                          ) : (
-                            <span className="h-6 w-6 rounded-full border border-brand-accent-1/35" />
-                          )}
-                        </div>
-                        <p className={`mt-3 text-2xl font-semibold ${active ? "text-brand-accent-2" : ""}`}>{item.label}</p>
-                        <p className="text-sm text-muted-foreground">Focar em {item.label.toLowerCase()}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <p className="mb-3 text-sm font-semibold uppercase tracking-[0.08em]">Nível de atividade</p>
-                <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Nível de atividade">
-                  {[
-                    { key: "sedentario" as const, icon: Sofa },
-                    { key: "moderado" as const, icon: Footprints },
-                  ].map((item) => {
-                    const Icon = item.icon;
-                    const active = setupActivity === item.key;
-                    return (
-                      <button
-                        type="button"
-                        key={item.key}
-                        onClick={() => {
-                          setSetupActivity(item.key);
-                          setProfile(p => ({ ...p, activityLevel: onboardingActivityMap[item.key].profileValue }));
-                        }}
-                        role="radio"
-                        aria-checked={active}
-                        className={`glass-card rounded-2xl p-4 text-left transition-all duration-200 active:scale-95 ${
-                          active ? "border-brand-accent-2 shadow-[inset_0_0_0_2px_var(--color-brand-accent-2)] bg-brand-accent-1/5" : ""
-                        }`}
+                        📲 Instalar App
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => setShowInstallPrompt(false)}
+                        className="h-12 rounded-xl text-muted-foreground font-medium"
                       >
-                        <div className="flex items-center justify-between">
-                          <Icon className={`h-6 w-6 ${active ? "text-brand-accent-2" : "text-muted-foreground"}`} />
-                          {active ? (
-                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-accent-2 text-white">
-                              <Check className="h-4 w-4" />
-                            </span>
-                          ) : (
-                            <span className="h-6 w-6 rounded-full border border-brand-accent-1/35" />
-                          )}
-                        </div>
-                        <p className={`mt-3 text-2xl font-semibold ${active ? "text-brand-accent-2" : ""}`}>{onboardingActivityMap[item.key].title}</p>
-                        <p className="text-sm text-muted-foreground">{onboardingActivityMap[item.key].subtitle}</p>
-                      </button>
-                    );
-                  })}
+                        Continuar na Web
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSetupActivity("intenso");
-                    setProfile(p => ({ ...p, activityLevel: onboardingActivityMap.intenso.profileValue }));
-                  }}
-                  role="radio"
-                  aria-checked={setupActivity === "intenso"}
-                  className={`glass-card mt-3 flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-all duration-200 active:scale-95 ${
-                    setupActivity === "intenso"
-                      ? "border-brand-accent-2 shadow-[inset_0_0_0_2px_var(--color-brand-accent-2)] bg-brand-accent-1/5"
-                      : ""
-                  }`}
-                >
-                  <Dumbbell className={`h-6 w-6 ${setupActivity === "intenso" ? "text-brand-accent-2" : "text-muted-foreground"}`} />
-                  <div>
-                    <p className={`text-2xl font-semibold ${setupActivity === "intenso" ? "text-brand-accent-2" : ""}`}>{onboardingActivityMap.intenso.title}</p>
-                    <p className="text-sm text-muted-foreground">{onboardingActivityMap.intenso.subtitle}</p>
-                  </div>
-                  {setupActivity === "intenso" ? (
-                    <span className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-accent-2 text-white">
-                      <Check className="h-4 w-4" />
-                    </span>
-                  ) : (
-                    <span className="ml-auto h-6 w-6 rounded-full border border-brand-accent-1/35" />
-                  )}
-                </button>
-              </div>
-
-              <div className="space-y-3 pt-2">
-                <Button 
-                  onClick={onboardingDone ? handleGeneratePlan : handleOnboardingSubmit} 
-                  disabled={authLoading}
-                  className="h-14 w-full rounded-[24px] text-lg bg-brand-accent-2 font-bold"
-                >
-                  {authLoading ? (
-                    <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <>{onboardingDone ? "Calcular Novo Plano com IA ✨" : "Submeter Dados para Aprovação"}</>
-                  )}
-                </Button>
-                <p className="px-2 text-center text-sm text-muted-foreground">
-                  Após submeter, a equipa LUMEfit irá validar os teus dados para libertar a análise com IA.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {view === "pending_plan" && (
-        <section className={shellClass}>
-          <div className="glass-card rounded-[32px] p-8 text-center space-y-6">
-            <div className="mx-auto w-24 h-24 rounded-full bg-brand-accent-1/20 flex items-center justify-center text-4xl animate-bounce-slow">
-              ✨
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-3xl font-bold">{onboardingDone ? "IA a trabalhar..." : "Perfil Aprovado!"}</h2>
-              <p className="text-muted-foreground">
-                {onboardingDone 
-                  ? "A nossa IA está a recalcular o teu plano com base nos novos dados que forneceste." 
-                  : "A tua conta foi validada. Agora a nossa IA está pronta para criar o teu plano personalizado."}
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-brand-accent-1/10 border border-brand-accent-1/20">
-              <p className="text-sm font-medium">Prepara-te para a transformação! ðŸš€</p>
-            </div>
-
-            {!showPlanPresentation ? (
-              <Button 
-                onClick={handleGeneratePlan}
-                disabled={authLoading}
-                className="w-full h-16 rounded-2xl bg-brand-accent-2 text-xl font-bold shadow-xl shadow-brand-accent-2/20"
-              >
-                {authLoading ? (
-                  <>
-                    <div className="h-6 w-6 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                    A gerar plano...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="mr-2 h-6 w-6" /> Analisar com IA
-                  </>
-                )}
-              </Button>
-            ) : generatedPlan && (
-               <div ref={planResultRef} className="animate-in slide-in-from-bottom-10 duration-700">
-                <article className="glass-card rounded-[24px] p-6 text-left border-2 border-brand-accent-2/30">
-                  <p className="text-xs font-bold uppercase tracking-widest text-brand-accent-2">O teu novo plano</p>
-                  <h3 className="mt-2 text-2xl font-bold">Plano Diário Sugerido</h3>
-                  <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{generatedPlan.summary}</p>
-
-                  <div className="mt-6 grid grid-cols-2 gap-4">
-                    <div className="rounded-2xl bg-muted/30 p-4 border border-glass-border">
-                      <p className="text-xs text-muted-foreground">Calorias</p>
-                      <p className="text-2xl font-bold text-brand-accent-2">{generatedPlan.calorieGoal} kcal</p>
-                    </div>
-                    <div className="rounded-2xl bg-muted/30 p-4 border border-glass-border">
-                      <p className="text-xs text-muted-foreground">Hidratação</p>
-                      <p className="text-2xl font-bold text-brand-accent-1">{(generatedPlan.hydrationGoalMl / 1000).toFixed(1)}L</p>
-                    </div>
-                  </div>
-
-                  {generatedPlan.motivationalTip && (
-                    <div className="mt-6 p-4 rounded-2xl bg-brand-accent-1/5 border-l-4 border-brand-accent-2 italic text-sm">
-                      " {generatedPlan.motivationalTip} "
-                    </div>
-                  )}
-
-                  <Button onClick={applyGeneratedPlan} className="mt-8 h-14 w-full rounded-2xl bg-brand-accent-2 font-bold text-lg shadow-lg shadow-brand-accent-2/20">
-                    Iniciar Minha Jornada
-                  </Button>
-                </article>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      {view !== "setup" && (
-        <section className={shellClass}>
-          {(view === "home" || view === "refeicoes") && (
-            <>
-              <header className="glass-card rounded-xl p-4">
-                <p className="text-sm text-muted-foreground">{getTodayLabel(localeTag)}</p>
-                <h2 className="mt-1 text-2xl font-semibold">
-                  {t.greeting}, {profile.name || t.champion}! 🌟
-                </h2>
-                <p className="mt-2 text-sm text-muted-foreground">{todayQuote}</p>
-              </header>
-
-              {view === "home" && (
-                <>
-                  <article className="glass-card mt-4 rounded-xl p-5 text-center">
-                    <h3 className="text-sm text-muted-foreground">{t.todayCalories}</h3>
-                    <div className="mx-auto mt-4 h-40 w-40">
-                      <svg viewBox="0 0 120 120" className="h-full w-full">
-                        <defs>
-                          <linearGradient id="calorieRingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor={calorieColors.stop1} />
-                            <stop offset="100%" stopColor={calorieColors.stop2} />
-                          </linearGradient>
-                        </defs>
-                        <circle
-                          cx="60"
-                          cy="60"
-                          r="52"
-                          fill="none"
-                          stroke="var(--color-glass-border)"
-                          strokeWidth="8"
-                        />
-                        <circle
-                          cx="60"
-                          cy="60"
-                          r="52"
-                          fill="none"
-                          stroke="url(#calorieRingGradient)"
-                          strokeWidth="8"
-                          strokeDasharray={`${(caloriePercent / 100) * 327} 327`}
-                          strokeLinecap="round"
-                          transform="rotate(-90 60 60)"
-                          className="transition-all duration-500"
-                          style={{ filter: `drop-shadow(0 0 6px ${ringGlow})` }}
-                        />
-                      </svg>
-                      <div className="-mt-24 text-center">
-                        <p className="text-2xl font-bold">{consumedCalories}</p>
-                        <p className="text-xs text-muted-foreground">/ {profile.calorieGoal} kcal</p>
-                      </div>
-                    </div>
-                    <p className="mt-3 text-sm">{t.remaining.charAt(0).toUpperCase() + t.remaining.slice(1)} {remainingCalories} {t.calories.toLowerCase()} {appLanguage === "en" ? "today" : "hoje"}</p>
-                  </article>
-
-                  <div className="mt-4 grid grid-cols-3 gap-2">
-                    {[
-                      { label: t.proteins, value: macros.protein, key: "protein", color: "bg-macro-protein" },
-                      { label: t.carbohydrates, value: macros.carbs, key: "carbs", color: "bg-macro-carbs" },
-                      { label: t.fats, value: macros.fat, key: "fat", color: "bg-macro-fat" },
-                    ].map((macro) => (
-                      <article key={macro.key} className="glass-card rounded-xl p-3">
-                        <p className="text-xs text-muted-foreground">{macro.label}</p>
-                        <p className="my-2 text-sm font-medium">
-                          {Math.round(macro.value)}g / {profile.macroGoals[macro.key as "protein" | "carbs" | "fat"]}g
-                        </p>
-                        <Progress
-                          value={macroProgress[macro.key as "protein" | "carbs" | "fat"]}
-                          indicatorClassName={macro.color}
-                        />
-                      </article>
-                    ))}
-                  </div>
-
-                  <article className="glass-card mt-4 rounded-[20px] p-4">
-                    <div className="mb-3 flex items-center justify-between">
-                      <h3 className="text-sm font-semibold">{t.water}</h3>
-                      <span className="rounded-full border border-brand-accent-1/30 bg-brand-accent-1/15 px-3 py-1 text-xs font-medium">
-                        {(waterIntakeMl / 1000).toFixed(2)}L / {hydrationGoalLiters}L
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      <div className="water-bottle-shell">
-                        <div className="water-bottle-neck" />
-                        <div className="water-bottle-body">
-                          <div className="water-bottle-fill" style={{ height: `${hydrationPercent}%` }} />
-                        </div>
-                      </div>
-                      <div className="flex-1 space-y-3">
-                        <p className="text-sm text-muted-foreground">
-                          Meta diária baseada no teu plano: <strong className="text-foreground">{hydrationGoalLiters} litros</strong>
-                        </p>
-                        <Progress value={hydrationPercent} indicatorClassName="bg-hydration" />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleUpdateWater(250)}
-                            className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-accent-3/30 text-brand-accent-2 transition-transform active:scale-90"
-                          >
-                            <Plus className="h-6 w-6" />
-                          </button>
-                          <button
-                            onClick={() => handleUpdateWater(-50)}
-                            className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/30 text-muted-foreground transition-transform active:scale-90"
-                          >
-                            <Minus className="h-6 w-6" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    {(Object.keys(localizedMeals) as MealType[]).map((meal) => {
-                      const mealEntries = mealsByType[meal];
-                      const total = mealEntries.reduce((sum, item) => sum + item.calories, 0);
-                      const isOpen = expandedMeals.includes(meal);
-
-                      return (
-                        <article
-                          key={meal}
-                          className="glass-card rounded-xl border-l-4 border-l-transparent p-3 hover:border-l-brand-accent-1 hover:bg-white/85"
-                        >
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedMeals((prev) =>
-                                prev.includes(meal)
-                                  ? prev.filter((item) => item !== meal)
-                                  : [...prev, meal],
-                              )
-                            }
-                            className="w-full text-left"
-                          >
-                            <p className="text-sm font-medium">{localizedMeals[meal]}</p>
-                            <p className="text-xs text-muted-foreground">{total} kcal</p>
-                          </button>
-                          <Button
-                            size="sm"
-                            className="mt-3 w-full bg-brand-accent-3/80 hover:bg-brand-accent-3"
-                            onClick={() => {
-                              setSelectedMeal(meal);
-                              setView("refeicoes");
-                              setMealStage("camera");
-                            }}
-                          >
-                            + {appLanguage === "en" ? "Add" : "Adicionar"}
-                          </Button>
-                          {isOpen && (
-                            <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-                              {mealEntries.slice(0, 3).map((entry) => (
-                                <li key={entry.id} className="flex items-center gap-2">
-                                  {entry.photo ? (
-                                    <img
-                                      src={entry.photo}
-                                      alt={entry.foodName}
-                                      className="h-6 w-6 rounded-md object-cover"
-                                      loading="lazy"
-                                    />
-                                  ) : null}
-                                  <span className="truncate">{entry.foodName}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </article>
-                      );
-                    })}
-                  </div>
-                </>
               )}
 
-              {view === "refeicoes" && (
-                <>
-                  {mealStage === "camera" && (
-                    <div className="mt-4 space-y-4">
-                      <article className="glass-card rounded-[20px] p-5 shadow-[0_0_0_1px_var(--color-brand-accent-1)_inset,0_8px_28px_oklch(0.64_0.12_152_/_20%)]">
-                        <p className="text-xs text-muted-foreground">Adicionar em: {currentMealTitle}</p>
-                        <h3 className="mt-1 text-2xl font-bold text-primary">Analisar Refeição</h3>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          Tira uma foto do teu prato e a IA faz o resto ✨
-                        </p>
+              <div className="fixed left-4 top-4 z-40 flex items-center gap-4">
+                {view !== "setup" && (
+                  <div className="relative">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-10 w-10 rounded-xl bg-glass"
+                      onClick={() => setShowTopMenu((prev) => !prev)}
+                      aria-label={t.menuOpenAria}
+                    >
+                      <Menu className="h-5 w-5" />
+                    </Button>
 
-                        <div className="mt-4 grid grid-cols-2 gap-3">
-                          <Button
-                            onClick={() => cameraInputRef.current?.click()}
-                            className="camera-pulse h-14 rounded-[18px] text-sm"
-                          >
-                            <Camera className="h-4 w-4" />
-                            Tirar Foto
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => galleryInputRef.current?.click()}
-                            className="h-14 rounded-[18px] border-brand-accent-1/40 bg-glass text-primary"
-                          >
-                            <ImagePlus className="h-4 w-4" />
-                            Carregar da Galeria
-                          </Button>
-                        </div>
-                      </article>
-
-                      <article className="glass-card rounded-[20px] p-4">
-                        <div className="mb-3 flex items-center justify-between">
-                          <h4 className="text-sm font-semibold">Análises Recentes</h4>
-                          <span className="text-xs text-muted-foreground">Últimas 5</span>
-                        </div>
-                        <div className="no-scrollbar scroll-touch card-list-contain recent-meals-strip flex gap-3 overflow-x-auto pb-1">
-                          {recentAnalyses.map((item) => (
-                            <RecentAnalysisItem key={item.id} item={item} onOpen={handleOpenSavedAnalysis} />
-                          ))}
-                        </div>
-                      </article>
-
-                      <input
-                        ref={cameraInputRef}
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        className="hidden"
-                        onChange={(e) => handleImagePick(e.target.files?.[0] || null)}
-                      />
-                      <input
-                        ref={galleryInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => handleImagePick(e.target.files?.[0] || null)}
-                      />
-                    </div>
-                  )}
-
-                  {mealStage === "preview" && previewImage && (
-                    <div className="mt-4 space-y-4">
-                      <article className="glass-card rounded-[20px] p-4 shadow-[0_0_0_1px_var(--color-brand-accent-1)_inset]">
-                        <img
-                          src={previewImage}
-                          alt={t.previewMeal}
-                          className="h-64 w-full rounded-2xl border border-brand-accent-1/40 object-cover"
-                        />
-                      </article>
-
-                      <div className="space-y-3">
-                        <Button 
-                          className="h-12 w-full rounded-[18px]" 
-                          onClick={() => setMealStage("analyzing")}
-                          disabled={!previewImageBase64}
-                        >
-                          {!previewImageBase64 ? (
-                            <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                          ) : (
-                            <Sparkles className="h-4 w-4 mr-2" />
-                          )}
-                          {t.analyzeThis}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="h-11 w-full rounded-[18px]"
+                    {showTopMenu ? (
+                      <div className="glass-card absolute left-0 top-12 min-w-[220px] rounded-2xl p-2">
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-brand-accent-3/30"
                           onClick={() => {
-                            setPreviewImage(null);
-                            setMealStage("camera");
+                            setShareMode("general");
+                            setShareImageUrl(null);
+                            setShowShareSheet(true);
+                            setShowTopMenu(false);
                           }}
                         >
-                          {t.chooseAnother}
-                        </Button>
+                          <Share2 className="h-4 w-4" />
+                          {t.menuShare}
+                        </button>
+                        <button
+                          type="button"
+                          className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-brand-accent-3/30"
+                          onClick={() => {
+                            setShowSettingsSheet(true);
+                            setShowTopMenu(false);
+                          }}
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          {t.menuSettings}
+                        </button>
+
+                        {profile.role === 'admin' && (
+                          <button
+                            type="button"
+                            className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-brand-accent-3/30 text-brand-accent-2 font-bold"
+                            onClick={() => {
+                              setIsAdminOpen(true);
+                              setShowTopMenu(false);
+                            }}
+                          >
+                            <CircleUserRound className="h-4 w-4" />
+                            Painel Admin
+                          </button>
+                        )}
                       </div>
+                    ) : null}
+                  </div>
+                )}
+
+              </div>
+
+              {view === "setup" && (
+                <section className={shellClass}>
+                  <div className="glass-card rounded-[24px] p-0">
+                    <div className="flex items-center justify-between border-b border-glass-border/70 px-4 py-3">
+                      <button
+                        type="button"
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-glass-border bg-glass"
+                        onClick={showComingSoonToast}
+                      >
+                        ✕
+                      </button>
+                      <span className="h-10 w-10" />
+                      <span className="h-10 w-10" />
                     </div>
-                  )}
 
-                  {mealStage === "clarification" && (
-                    <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-bottom-6 duration-500">
-                      <article className="glass-card overflow-hidden rounded-[32px] border-2 border-brand-accent-1/30 shadow-2xl shadow-brand-accent-1/10">
-                        <div className="bg-gradient-to-br from-brand-accent-1/10 to-transparent p-6">
-                          <div className="w-16 h-16 rounded-3xl bg-white shadow-lg flex items-center justify-center text-4xl mb-6 animate-bounce-slow">
-                            🤔
-                          </div>
-                          <h3 className="text-2xl font-bold text-foreground">A IA tem uma dúvida...</h3>
-                          <p className="mt-2 text-sm text-muted-foreground">Para uma análise 100% precisa, preciso de um detalhe:</p>
-                        </div>
-                        
-                        <div className="px-6 pb-6 space-y-6">
-                          <div className="bg-brand-accent-1/5 p-5 rounded-[24px] border-l-4 border-brand-accent-1 relative">
-                            <Sparkles className="absolute -top-2 -right-2 h-6 w-6 text-brand-accent-1/40" />
-                            <p className="text-foreground font-medium italic leading-relaxed">
-                              "{aiClarificationQuestion}"
-                            </p>
-                          </div>
-                          
-                          <div className="space-y-3">
-                            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent-1/70 ml-1">Tua resposta</label>
-                            <textarea 
-                              value={userClarificationResponse}
-                              onChange={(e) => setUserClarificationResponse(e.target.value)}
-                              placeholder="Ex: É um frango grelhado na air fryer com pouco azeite..."
-                              className="w-full h-36 p-5 rounded-[24px] bg-white/50 border border-glass-border focus:ring-4 focus:ring-brand-accent-1/20 focus:border-brand-accent-1 outline-none text-base transition-all shadow-inner resize-none"
-                            />
-                          </div>
-                          
-                          <div className="flex gap-3 pt-2">
-                            <Button 
-                              variant="outline" 
-                              className="flex-1 h-14 rounded-2xl border-glass-border hover:bg-muted/50 text-muted-foreground font-bold"
-                              onClick={() => {
-                                setUserClarificationResponse("Não tenho a certeza, analisa como preferires.");
-                                setMealStage("analyzing");
-                              }}
-                            >
-                              Pular
-                            </Button>
-                            <Button 
-                              className="flex-[2] h-14 rounded-2xl bg-brand-accent-2 hover:bg-brand-accent-2/90 font-bold text-lg shadow-xl shadow-brand-accent-2/30 transition-all active:scale-[0.98]"
-                              disabled={!userClarificationResponse.trim()}
-                              onClick={() => {
-                                setMealStage("analyzing");
-                              }}
-                            >
-                              Enviar Resposta
-                            </Button>
-                          </div>
-                        </div>
-                      </article>
-                    </div>
-                  )}
-
-                  {mealStage === "result" && activeResult && (
-                    <div className="mt-4 space-y-4 pb-36">
-                      <article className="glass-card animate-enter rounded-[20px] p-5">
-                        {previewImage ? (
-                          <img
-                            src={previewImage}
-                            alt={activeResult.mealName}
-                            className="h-48 w-full rounded-2xl border border-brand-accent-1/45 object-cover shadow-[0_0_0_1px_var(--color-brand-accent-1)_inset,0_10px_24px_oklch(0.64_0.12_152_/_20%)]"
-                          />
-                        ) : null}
-                        <h3 className="mt-3 text-xl font-bold">{activeResult.mealName}</h3>
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <span className="rounded-full border border-brand-accent-1/40 bg-brand-accent-1/20 px-3 py-1 text-xs font-medium text-primary">
-                            {activeResult.confidence}% {t.accuracy} ✓
-                          </span>
-                          <span className="rounded-full border border-glass-border bg-glass px-3 py-1 text-xs">
-                            {activeResult.cuisineTag}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {appLanguage === "en" ? "Today" : "Hoje"}, {currentTimestamp}
-                          </span>
-                        </div>
-                      </article>
-
-                      <article className="glass-card animate-enter rounded-[20px] p-5 text-center">
-                        <p className="text-xs text-muted-foreground">{t.totalEstimate}</p>
-                        <p className="mt-1 text-5xl font-bold text-primary">{Math.round(animatedKcal)}</p>
-                        <p className="text-sm font-medium">{t.estimatedKcal}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {t.basedOnPortions}
+                    <div className="space-y-5 p-4">
+                      <div className="text-center">
+                        <h1 className="text-5xl font-bold leading-tight text-foreground">
+                          Seu corpo, sua <span className="text-brand-accent-2">jornada.</span>
+                        </h1>
+                        <p className="mt-4 text-lg text-muted-foreground">
+                          Vamos criar um plano que respeita seu ritmo, sua rotina e sua essência.
                         </p>
-                        <div className="mt-4">
-                          <div className="h-3 overflow-hidden rounded-full bg-brand-accent-3/40">
-                            <div
-                              className="h-full rounded-full bg-gradient-to-r from-brand-accent-1 to-brand-accent-2 transition-all duration-700"
-                              style={{ width: `${Math.min(100, activeResult.dailyGoalPercent * portionMultiplier)}%` }}
-                            />
+                      </div>
+
+                      <div>
+                        <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">{t.onboardingCityLabel}</p>
+                        <Input
+                          type="text"
+                          placeholder={t.onboardingCityPlaceholder}
+                          value={profile.city}
+                          onChange={(e) => setProfile((p) => ({ ...p, city: e.target.value }))}
+                          className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-xl font-semibold"
+                        />
+                      </div>
+
+                      <div>
+                        <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">{t.onboardingNameLabel}</p>
+                        <Input
+                          type="text"
+                          placeholder={t.onboardingNamePlaceholder}
+                          value={profile.name}
+                          onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
+                          className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-xl font-semibold"
+                        />
+                      </div>
+
+                      <article className="glass-card rounded-[20px] p-3">
+                        <div className="relative overflow-hidden rounded-[18px] border border-glass-border/80 bg-gradient-to-b from-brand-accent-1/75 to-brand-accent-2/95 p-6 text-center text-primary-foreground">
+                          <div className="mx-auto flex h-44 w-44 items-center justify-center rounded-full bg-brand-accent-2/60 shadow-[inset_0_0_0_1px_var(--color-glass-border)]">
+                            <div>
+                              <p className="text-5xl">💚</p>
+                              <p className="mt-2 text-4xl font-semibold">Saúde</p>
+                              <p className="text-lg opacity-90">bem-estar</p>
+                            </div>
                           </div>
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            {t.thisPlateIs} {Math.round(activeResult.dailyGoalPercent * portionMultiplier)}% {t.ofDailyGoal}
+                          <p className="mt-4 text-sm tracking-[0.18em] text-primary-foreground/90">
+                            ● IA ATIVA â€¢ ANALISANDO BIOTIPO
                           </p>
                         </div>
                       </article>
 
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          {
-                            key: "prot",
-                            label: t.proteins,
-                            value: animatedProtein,
-                            target: activeResult.protein * portionMultiplier,
-                            ring: "var(--color-macro-protein)",
-                            bg: "bg-macro-protein/10 border-macro-protein/30",
-                          },
-                          {
-                            key: "carb",
-                            label: t.carbohydrates,
-                            value: animatedCarbs,
-                            target: activeResult.carbs * portionMultiplier,
-                            ring: "var(--color-macro-carbs)",
-                            bg: "bg-macro-carbs/10 border-macro-carbs/30",
-                          },
-                          {
-                            key: "fat",
-                            label: t.fats,
-                            value: animatedFat,
-                            target: activeResult.fat * portionMultiplier,
-                            ring: "var(--color-macro-fat)",
-                            bg: "bg-macro-fat/10 border-macro-fat/30",
-                          },
-                        ].map((macro, index) => {
-                          const pct = Math.min(100, (macro.value / Math.max(macro.target, 1)) * 100);
-                          return (
-                            <article
-                              key={macro.key}
-                              className={`glass-card rounded-[20px] border p-3 animate-enter ${macro.bg}`}
-                              style={{ animationDelay: `${index * 0.1}s` }}
-                            >
-                              <div className="mx-auto mb-2 h-12 w-12">
-                                <svg viewBox="0 0 48 48" className="h-full w-full -rotate-90">
-                                  <circle cx="24" cy="24" r="18" stroke="var(--color-glass-border)" strokeWidth="5" fill="none" />
-                                  <circle
-                                    cx="24"
-                                    cy="24"
-                                    r="18"
-                                    stroke={macro.ring}
-                                    strokeWidth="5"
-                                    fill="none"
-                                    strokeLinecap="round"
-                                    strokeDasharray={`${(pct / 100) * 113} 113`}
-                                    className="transition-all duration-700"
-                                  />
-                                </svg>
-                              </div>
-                              <p className="text-[11px] text-muted-foreground">{macro.label}</p>
-                              <p className="text-base font-bold">{Math.round(macro.value)}g</p>
-                            </article>
-                          );
-                        })}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">{t.onboardingCurrentWeightLabel}</p>
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            value={profile.weight || ""}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(",", ".");
+                              if (val === "" || !isNaN(Number(val))) {
+                                setProfile((p) => ({ ...p, weight: val === "" ? 0 : Number(val) }));
+                              }
+                            }}
+                            className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-2xl font-semibold"
+                          />
+                        </div>
+                        <div>
+                          <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">{t.onboardingHeightLabel}</p>
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            value={profile.height || ""}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(",", ".");
+                              if (val === "" || !isNaN(Number(val))) {
+                                setProfile((p) => ({ ...p, height: val === "" ? 0 : Number(val) }));
+                              }
+                            }}
+                            className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-2xl font-semibold"
+                          />
+                        </div>
                       </div>
 
-                      <article className="glass-card rounded-[20px] p-4">
-                        <h4 className="text-sm font-semibold">{t.ingredientsIdentified}</h4>
-                        <div className="mt-3 space-y-2">
-                          {activeResult.ingredients.map((item, index) => {
-                            const expanded = expandedIngredient === item.name;
+                      <div>
+                        <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">{t.onboardingTargetWeightLabel}</p>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          value={profile.targetWeight || ""}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(",", ".");
+                            if (val === "" || !isNaN(Number(val))) {
+                              setProfile((p) => ({ ...p, targetWeight: val === "" ? 0 : Number(val) }));
+                            }
+                          }}
+                          className="h-14 rounded-2xl border-brand-accent-1/25 bg-glass-muted text-center text-2xl font-semibold"
+                        />
+                      </div>
+
+                      <div>
+                        <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em]">Sua idade</p>
+                        <div className="glass-card flex items-center justify-between rounded-2xl px-3 py-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setProfile((p) => ({ ...p, age: Math.max(16, p.age - 1) }))}
+                            className="h-12 w-12 rounded-xl"
+                          >
+                            −
+                          </Button>
+                          <p className="text-4xl font-bold">{profile.age}</p>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setProfile((p) => ({ ...p, age: Math.min(75, p.age + 1) }))}
+                            className="h-12 w-12 rounded-xl"
+                          >
+                            +
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="mb-3 text-sm font-semibold uppercase tracking-[0.08em]">Teu Objetivo</p>
+                        <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Objetivo">
+                          {[
+                            { label: "Perder Peso", icon: Flame, value: weeklyGoals[1] },
+                            { label: "Ganhar Peso", icon: Trophy, value: weeklyGoals[weeklyGoals.length - 1] },
+                          ].map((item) => {
+                            const Icon = item.icon;
+                            const active = profile.weeklyGoal.startsWith(item.label.split(" ")[0]);
                             return (
                               <button
                                 type="button"
-                                key={item.name}
-                                onClick={() => setExpandedIngredient((prev) => (prev === item.name ? null : item.name))}
-                                className="glass-chip animate-enter w-full rounded-xl border border-glass-border bg-glass p-3 text-left"
-                                style={{ animationDelay: `${index * 0.08}s` }}
+                                key={item.label}
+                                onClick={() => setProfile(p => ({ ...p, weeklyGoal: item.value }))}
+                                role="radio"
+                                aria-checked={active}
+                                className={`glass-card rounded-2xl p-4 text-left transition-all duration-200 active:scale-95 ${active ? "border-brand-accent-2 shadow-[inset_0_0_0_2px_var(--color-brand-accent-2)] bg-brand-accent-1/5" : ""
+                                  }`}
                               >
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="flex items-start gap-2">
-                                    <Check className="mt-0.5 h-4 w-4 text-brand-accent-1" />
-                                    <div>
-                                      <p className="text-sm font-medium">{item.name}</p>
-                                      <p className="text-xs text-muted-foreground">{Math.round(item.calories * portionMultiplier)} kcal</p>
-                                    </div>
-                                  </div>
-                                  <span className="text-xs text-muted-foreground">{expanded ? "−" : "+"}</span>
+                                <div className="flex items-center justify-between">
+                                  <Icon className={`h-6 w-6 ${active ? "text-brand-accent-2" : "text-muted-foreground"}`} />
+                                  {active ? (
+                                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-accent-2 text-white">
+                                      <Check className="h-4 w-4" />
+                                    </span>
+                                  ) : (
+                                    <span className="h-6 w-6 rounded-full border border-brand-accent-1/35" />
+                                  )}
                                 </div>
-                                {expanded ? <p className="mt-2 text-xs text-muted-foreground">{item.note}</p> : null}
+                                <p className={`mt-3 text-2xl font-semibold ${active ? "text-brand-accent-2" : ""}`}>{item.label}</p>
+                                <p className="text-sm text-muted-foreground">Focar em {item.label.toLowerCase()}</p>
                               </button>
                             );
                           })}
                         </div>
-                      </article>
+                      </div>
 
-                      <article className="glass-card rounded-[20px] p-4">
+                      <div>
+                        <p className="mb-3 text-sm font-semibold uppercase tracking-[0.08em]">Nível de atividade</p>
+                        <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Nível de atividade">
+                          {[
+                            { key: "sedentario" as const, icon: Sofa },
+                            { key: "moderado" as const, icon: Footprints },
+                          ].map((item) => {
+                            const Icon = item.icon;
+                            const active = setupActivity === item.key;
+                            return (
+                              <button
+                                type="button"
+                                key={item.key}
+                                onClick={() => {
+                                  setSetupActivity(item.key);
+                                  setProfile(p => ({ ...p, activityLevel: onboardingActivityMap[item.key].profileValue }));
+                                }}
+                                role="radio"
+                                aria-checked={active}
+                                className={`glass-card rounded-2xl p-4 text-left transition-all duration-200 active:scale-95 ${active ? "border-brand-accent-2 shadow-[inset_0_0_0_2px_var(--color-brand-accent-2)] bg-brand-accent-1/5" : ""
+                                  }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <Icon className={`h-6 w-6 ${active ? "text-brand-accent-2" : "text-muted-foreground"}`} />
+                                  {active ? (
+                                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-accent-2 text-white">
+                                      <Check className="h-4 w-4" />
+                                    </span>
+                                  ) : (
+                                    <span className="h-6 w-6 rounded-full border border-brand-accent-1/35" />
+                                  )}
+                                </div>
+                                <p className={`mt-3 text-2xl font-semibold ${active ? "text-brand-accent-2" : ""}`}>{onboardingActivityMap[item.key].title}</p>
+                                <p className="text-sm text-muted-foreground">{onboardingActivityMap[item.key].subtitle}</p>
+                              </button>
+                            );
+                          })}
+                        </div>
                         <button
                           type="button"
-                          className="flex w-full items-center justify-between"
-                          onClick={() => setNutritionOpen((prev) => !prev)}
+                          onClick={() => {
+                            setSetupActivity("intenso");
+                            setProfile(p => ({ ...p, activityLevel: onboardingActivityMap.intenso.profileValue }));
+                          }}
+                          role="radio"
+                          aria-checked={setupActivity === "intenso"}
+                          className={`glass-card mt-3 flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-all duration-200 active:scale-95 ${setupActivity === "intenso"
+                              ? "border-brand-accent-2 shadow-[inset_0_0_0_2px_var(--color-brand-accent-2)] bg-brand-accent-1/5"
+                              : ""
+                            }`}
                         >
-                          <h4 className="text-sm font-semibold">Detalhes Nutricionais</h4>
-                          {nutritionOpen ? (
-                            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                          <Dumbbell className={`h-6 w-6 ${setupActivity === "intenso" ? "text-brand-accent-2" : "text-muted-foreground"}`} />
+                          <div>
+                            <p className={`text-2xl font-semibold ${setupActivity === "intenso" ? "text-brand-accent-2" : ""}`}>{onboardingActivityMap.intenso.title}</p>
+                            <p className="text-sm text-muted-foreground">{onboardingActivityMap.intenso.subtitle}</p>
+                          </div>
+                          {setupActivity === "intenso" ? (
+                            <span className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-accent-2 text-white">
+                              <Check className="h-4 w-4" />
+                            </span>
                           ) : (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            <span className="ml-auto h-6 w-6 rounded-full border border-brand-accent-1/35" />
                           )}
                         </button>
+                      </div>
 
-                        {nutritionOpen ? (
-                          <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                            {[
-                              `🧂 ${t.sodium}: ${Math.round(activeResult.sodiumMg * portionMultiplier)}mg`,
-                              `🌾 ${t.fiber}: ${(activeResult.fiberG * portionMultiplier).toFixed(1)}g`,
-                              `🍬 ${t.sugars}: ${(activeResult.sugarsG * portionMultiplier).toFixed(1)}g`,
-                              `💊 ${t.vitaminA}: ${Math.round(activeResult.vitaminAPct * portionMultiplier)}% ${t.dv}`,
-                              `💊 ${t.vitaminC}: ${Math.round(activeResult.vitaminCPct * portionMultiplier)}% ${t.dv}`,
-                              `⚡ ${t.iron}: ${Math.round(activeResult.ironPct * portionMultiplier)}% ${t.dv}`,
-                              `🦴 ${t.calcium}: ${Math.round(activeResult.calciumPct * portionMultiplier)}% ${t.dv}`,
-                            ].map((value) => (
-                              <div key={value} className="rounded-lg border border-glass-border bg-glass px-3 py-2">
-                                {value}
+                      <div className="space-y-3 pt-2">
+                        <Button
+                          onClick={onboardingDone ? handleGeneratePlan : handleOnboardingSubmit}
+                          disabled={authLoading}
+                          className="h-14 w-full rounded-[24px] text-lg bg-brand-accent-2 font-bold"
+                        >
+                          {authLoading ? (
+                            <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          ) : (
+                            <>{onboardingDone ? "Calcular Novo Plano com IA ✨" : "Submeter Dados para Aprovação"}</>
+                          )}
+                        </Button>
+                        <p className="px-2 text-center text-sm text-muted-foreground">
+                          Após submeter, a equipa LUMEfit irá validar os teus dados para libertar a análise com IA.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {view === "pending_plan" && (
+                <section className={shellClass}>
+                  <div className="glass-card rounded-[32px] p-8 text-center space-y-6">
+                    <div className="mx-auto w-24 h-24 rounded-full bg-brand-accent-1/20 flex items-center justify-center text-4xl animate-bounce-slow">
+                      ✨
+                    </div>
+                    <div className="space-y-2">
+                      <h2 className="text-3xl font-bold">{onboardingDone ? "IA a trabalhar..." : "Perfil Aprovado!"}</h2>
+                      <p className="text-muted-foreground">
+                        {onboardingDone
+                          ? "A nossa IA está a recalcular o teu plano com base nos novos dados que forneceste."
+                          : "A tua conta foi validada. Agora a nossa IA está pronta para criar o teu plano personalizado."}
+                      </p>
+                    </div>
+
+                    <div className="p-6 rounded-2xl bg-brand-accent-1/10 border border-brand-accent-1/20">
+                      <p className="text-sm font-medium">Prepara-te para a transformação! ðŸš€</p>
+                    </div>
+
+                    {!showPlanPresentation ? (
+                      <Button
+                        onClick={handleGeneratePlan}
+                        disabled={authLoading}
+                        className="w-full h-16 rounded-2xl bg-brand-accent-2 text-xl font-bold shadow-xl shadow-brand-accent-2/20"
+                      >
+                        {authLoading ? (
+                          <>
+                            <div className="h-6 w-6 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                            A gerar plano...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="mr-2 h-6 w-6" /> Analisar com IA
+                          </>
+                        )}
+                      </Button>
+                    ) : generatedPlan && (
+                      <div ref={planResultRef} className="animate-in slide-in-from-bottom-10 duration-700">
+                        <article className="glass-card rounded-[24px] p-6 text-left border-2 border-brand-accent-2/30">
+                          <p className="text-xs font-bold uppercase tracking-widest text-brand-accent-2">O teu novo plano</p>
+                          <h3 className="mt-2 text-2xl font-bold">Plano Diário Sugerido</h3>
+                          <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{generatedPlan.summary}</p>
+
+                          <div className="mt-6 grid grid-cols-2 gap-4">
+                            <div className="rounded-2xl bg-muted/30 p-4 border border-glass-border">
+                              <p className="text-xs text-muted-foreground">Calorias</p>
+                              <p className="text-2xl font-bold text-brand-accent-2">{generatedPlan.calorieGoal} kcal</p>
+                            </div>
+                            <div className="rounded-2xl bg-muted/30 p-4 border border-glass-border">
+                              <p className="text-xs text-muted-foreground">Hidratação</p>
+                              <p className="text-2xl font-bold text-brand-accent-1">{(generatedPlan.hydrationGoalMl / 1000).toFixed(1)}L</p>
+                            </div>
+                          </div>
+
+                          {generatedPlan.motivationalTip && (
+                            <div className="mt-6 p-4 rounded-2xl bg-brand-accent-1/5 border-l-4 border-brand-accent-2 italic text-sm">
+                              " {generatedPlan.motivationalTip} "
+                            </div>
+                          )}
+
+                          <Button onClick={applyGeneratedPlan} className="mt-8 h-14 w-full rounded-2xl bg-brand-accent-2 font-bold text-lg shadow-lg shadow-brand-accent-2/20">
+                            Iniciar Minha Jornada
+                          </Button>
+                        </article>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {view !== "setup" && (
+                <section className={shellClass}>
+                  {(view === "home" || view === "refeicoes") && (
+                    <>
+                      <header className="glass-card rounded-xl p-4">
+                        <p className="text-sm text-muted-foreground">{getTodayLabel(localeTag)}</p>
+                        <h2 className="mt-1 text-2xl font-semibold">
+                          {t.greeting}, {profile.name || t.champion}! 🌟
+                        </h2>
+                        <p className="mt-2 text-sm text-muted-foreground">{todayQuote}</p>
+                      </header>
+
+                      {view === "home" && (
+                        <>
+                          <article className="glass-card mt-4 rounded-xl p-5 text-center">
+                            <h3 className="text-sm text-muted-foreground">{t.todayCalories}</h3>
+                            <div className="mx-auto mt-4 h-40 w-40">
+                              <svg viewBox="0 0 120 120" className="h-full w-full">
+                                <defs>
+                                  <linearGradient id="calorieRingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stopColor={calorieColors.stop1} />
+                                    <stop offset="100%" stopColor={calorieColors.stop2} />
+                                  </linearGradient>
+                                </defs>
+                                <circle
+                                  cx="60"
+                                  cy="60"
+                                  r="52"
+                                  fill="none"
+                                  stroke="var(--color-glass-border)"
+                                  strokeWidth="8"
+                                />
+                                <circle
+                                  cx="60"
+                                  cy="60"
+                                  r="52"
+                                  fill="none"
+                                  stroke="url(#calorieRingGradient)"
+                                  strokeWidth="8"
+                                  strokeDasharray={`${(caloriePercent / 100) * 327} 327`}
+                                  strokeLinecap="round"
+                                  transform="rotate(-90 60 60)"
+                                  className="transition-all duration-500"
+                                  style={{ filter: `drop-shadow(0 0 6px ${ringGlow})` }}
+                                />
+                              </svg>
+                              <div className="-mt-24 text-center">
+                                <p className="text-2xl font-bold">{consumedCalories}</p>
+                                <p className="text-xs text-muted-foreground">/ {profile.calorieGoal} kcal</p>
                               </div>
+                            </div>
+                            <p className="mt-3 text-sm">{t.remaining.charAt(0).toUpperCase() + t.remaining.slice(1)} {remainingCalories} {t.calories.toLowerCase()} {appLanguage === "en" ? "today" : "hoje"}</p>
+                          </article>
+
+                          <div className="mt-4 grid grid-cols-3 gap-2">
+                            {[
+                              { label: t.proteins, value: macros.protein, key: "protein", color: "bg-macro-protein" },
+                              { label: t.carbohydrates, value: macros.carbs, key: "carbs", color: "bg-macro-carbs" },
+                              { label: t.fats, value: macros.fat, key: "fat", color: "bg-macro-fat" },
+                            ].map((macro) => (
+                              <article key={macro.key} className="glass-card rounded-xl p-3">
+                                <p className="text-xs text-muted-foreground">{macro.label}</p>
+                                <p className="my-2 text-sm font-medium">
+                                  {Math.round(macro.value)}g / {profile.macroGoals[macro.key as "protein" | "carbs" | "fat"]}g
+                                </p>
+                                <Progress
+                                  value={macroProgress[macro.key as "protein" | "carbs" | "fat"]}
+                                  indicatorClassName={macro.color}
+                                />
+                              </article>
                             ))}
                           </div>
-                        ) : null}
-                      </article>
 
-                      <article className="glass-card rounded-[20px] border-l-4 border-l-brand-accent-1 p-4">
-                        <h4 className="text-sm font-semibold">💡 {t.insightsForYou}</h4>
-                        <div className="mt-3 space-y-2">
-                          {activeResult.insights.map((tipItem) => (
-                            <div key={tipItem} className="rounded-lg border border-glass-border bg-glass px-3 py-2 text-sm">
-                              {tipItem}
+                          <article className="glass-card mt-4 rounded-[20px] p-4">
+                            <div className="mb-3 flex items-center justify-between">
+                              <h3 className="text-sm font-semibold">{t.water}</h3>
+                              <span className="rounded-full border border-brand-accent-1/30 bg-brand-accent-1/15 px-3 py-1 text-xs font-medium">
+                                {(waterIntakeMl / 1000).toFixed(2)}L / {hydrationGoalLiters}L
+                              </span>
                             </div>
-                          ))}
-                        </div>
-                      </article>
 
-                      <article className="glass-card rounded-[20px] p-4">
-                        <div className="mb-3 flex items-center justify-between">
-                          <h4 className="text-sm font-semibold">{t.adjustPortion}</h4>
-                          <span className="rounded-full border border-brand-accent-1/40 bg-brand-accent-1/15 px-2.5 py-1 text-xs font-medium">
-                            {portionMultiplier}x â€” {t.normalPortion}
-                          </span>
-                        </div>
+                            <div className="flex items-center gap-4">
+                              <div className="water-bottle-shell">
+                                <div className="water-bottle-neck" />
+                                <div className="water-bottle-body">
+                                  <div className="water-bottle-fill" style={{ height: `${hydrationPercent}%` }} />
+                                </div>
+                              </div>
+                              <div className="flex-1 space-y-3">
+                                <p className="text-sm text-muted-foreground">
+                                  Meta diária baseada no teu plano: <strong className="text-foreground">{hydrationGoalLiters} litros</strong>
+                                </p>
+                                <Progress value={hydrationPercent} indicatorClassName="bg-hydration" />
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleUpdateWater(250)}
+                                    className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-accent-3/30 text-brand-accent-2 transition-transform active:scale-90"
+                                  >
+                                    <Plus className="h-6 w-6" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleUpdateWater(-50)}
+                                    className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/30 text-muted-foreground transition-transform active:scale-90"
+                                  >
+                                    <Minus className="h-6 w-6" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </article>
 
-                        <Slider
-                          min={0.5}
-                          max={2}
-                          step={0.5}
-                          value={[portionMultiplier]}
-                          onValueChange={([value]) => setPortionMultiplier(value)}
-                        />
+                          <div className="mt-4 grid grid-cols-2 gap-3">
+                            {(Object.keys(localizedMeals) as MealType[]).map((meal) => {
+                              const mealEntries = mealsByType[meal];
+                              const total = mealEntries.reduce((sum, item) => sum + item.calories, 0);
+                              const isOpen = expandedMeals.includes(meal);
 
-                        <div className="mt-3 flex justify-between text-[11px] text-muted-foreground">
-                          <span>0.5x</span>
-                          <span>1x</span>
-                          <span>1.5x</span>
-                          <span>2x</span>
-                        </div>
-                      </article>
-
-                      <div className="frosted-nav fixed bottom-20 left-1/2 z-30 w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-[18px] p-3 sm:max-w-md">
-                        <div className="space-y-2">
-                          <Button
-                            className="h-11 w-full"
-                            onClick={confirmAddToDiary}
-                            disabled={isSavingMeal || isViewingSavedAnalysis}
-                          >
-                            <Check className="h-4 w-4" />
-                            {isViewingSavedAnalysis
-                              ? t.viewSaved
-                              : isSavingMeal
-                                ? t.saving
-                                : t.addToDiary}
-                          </Button>
-                          <Button variant="outline" className="h-10 w-full" onClick={resetMealFlow}>
-                            {t.analyzeAnother}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </>
-          )}
-
-          {view === "progresso" && (
-            <>
-              <div className="glass-card rounded-xl p-4">
-                <h2 className="text-lg font-semibold">{t.weightHistory}</h2>
-                {weightHistory.length === 0 ? (
-                  <p className="mt-4 text-sm text-muted-foreground">{appLanguage === "en" ? "No weight logs yet — add your first! 🌿" : "Ainda sem registos de peso — adiciona o teu primeiro! 🌿"}</p>
-                ) : (
-                  <div className="mt-4 space-y-2">
-                    {weightHistory.map((point) => {
-                      const min = Math.min(...weightHistory.map((item) => item.weight));
-                      const max = Math.max(...weightHistory.map((item) => item.weight));
-                      const pct = ((point.weight - min) / Math.max(max - min, 1)) * 100;
-
-                      return (
-                        <div key={point.week} className="grid grid-cols-[56px_1fr_56px] items-center gap-2 text-xs">
-                          <span className="text-muted-foreground">{point.week}</span>
-                          <div className="h-2 overflow-hidden rounded-full bg-brand-accent-1/15">
-                            <div
-                              className="h-full rounded-full bg-gradient-to-r from-brand-accent-1 to-brand-accent-2"
-                              style={{ width: `${Math.max(14, pct)}%` }}
-                            />
+                              return (
+                                <article
+                                  key={meal}
+                                  className="glass-card rounded-xl border-l-4 border-l-transparent p-3 hover:border-l-brand-accent-1 hover:bg-white/85"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setExpandedMeals((prev) =>
+                                        prev.includes(meal)
+                                          ? prev.filter((item) => item !== meal)
+                                          : [...prev, meal],
+                                      )
+                                    }
+                                    className="w-full text-left"
+                                  >
+                                    <p className="text-sm font-medium">{localizedMeals[meal]}</p>
+                                    <p className="text-xs text-muted-foreground">{total} kcal</p>
+                                  </button>
+                                  <Button
+                                    size="sm"
+                                    className="mt-3 w-full bg-brand-accent-3/80 hover:bg-brand-accent-3"
+                                    onClick={() => {
+                                      setSelectedMeal(meal);
+                                      setView("refeicoes");
+                                      setMealStage("camera");
+                                    }}
+                                  >
+                                    + {appLanguage === "en" ? "Add" : "Adicionar"}
+                                  </Button>
+                                  {isOpen && (
+                                    <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                                      {mealEntries.slice(0, 3).map((entry) => (
+                                        <li key={entry.id} className="flex items-center gap-2">
+                                          {entry.photo ? (
+                                            <img
+                                              src={entry.photo}
+                                              alt={entry.foodName}
+                                              className="h-6 w-6 rounded-md object-cover"
+                                              loading="lazy"
+                                            />
+                                          ) : null}
+                                          <span className="truncate">{entry.foodName}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </article>
+                              );
+                            })}
                           </div>
-                          <span className="text-right font-semibold text-foreground">{point.weight.toFixed(1)}kg</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+                        </>
+                      )}
 
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                <article className="glass-card rounded-xl p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Dias seguidos</p>
-                  <p className="text-xl font-bold">{streakDays > 0 ? `${streakDays} 🔥` : "0"}</p>
-                </article>
-                <article className="glass-card rounded-xl p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Semana</p>
-                  <p className="text-xl font-bold">{weeklyBars.reduce((sum, day) => sum + day.calories, 0)} kcal</p>
-                </article>
-                <article className="glass-card rounded-xl p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Média diária</p>
-                  <p className="text-xl font-bold">{weeklyAverage} kcal</p>
-                </article>
-              </div>
+                      {view === "refeicoes" && (
+                        <>
+                          {mealStage === "camera" && (
+                            <div className="mt-4 space-y-4">
+                              <article className="glass-card rounded-[20px] p-5 shadow-[0_0_0_1px_var(--color-brand-accent-1)_inset,0_8px_28px_oklch(0.64_0.12_152_/_20%)]">
+                                <p className="text-xs text-muted-foreground">Adicionar em: {currentMealTitle}</p>
+                                <h3 className="mt-1 text-2xl font-bold text-primary">Analisar Refeição</h3>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                  Tira uma foto do teu prato e a IA faz o resto ✨
+                                </p>
 
-              <div className="glass-card mt-4 rounded-xl p-4">
-                <h3 className="text-sm font-semibold">Resumo semanal</h3>
-                <div className="mt-3 grid grid-cols-7 items-end gap-2">
-                  {weeklyBars.map((day) => {
-                    const min = Math.min(...weeklyBars.map((item) => item.calories));
-                    const max = Math.max(...weeklyBars.map((item) => item.calories));
-                    const pct = ((day.calories - min) / Math.max(max - min, 1)) * 100;
+                                <div className="mt-4 grid grid-cols-2 gap-3">
+                                  <Button
+                                    onClick={() => cameraInputRef.current?.click()}
+                                    className="camera-pulse h-14 rounded-[18px] text-sm"
+                                  >
+                                    <Camera className="h-4 w-4" />
+                                    Tirar Foto
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => galleryInputRef.current?.click()}
+                                    className="h-14 rounded-[18px] border-brand-accent-1/40 bg-glass text-primary"
+                                  >
+                                    <ImagePlus className="h-4 w-4" />
+                                    Carregar da Galeria
+                                  </Button>
+                                </div>
+                              </article>
 
-                    return (
-                      <div key={day.day} className="flex flex-col items-center gap-2">
-                        <div className="flex h-28 w-full items-end rounded-lg bg-brand-accent-1/10 p-1">
-                          <div
-                            className="w-full rounded-md bg-gradient-to-t from-brand-accent-1 to-brand-accent-2"
-                            style={{ height: `${pct}%` }}
-                          />
-                        </div>
-                        <span className="text-[11px] text-muted-foreground">{day.day}</span>
+                              <article className="glass-card rounded-[20px] p-4">
+                                <div className="mb-3 flex items-center justify-between">
+                                  <h4 className="text-sm font-semibold">Análises Recentes</h4>
+                                  <span className="text-xs text-muted-foreground">Últimas 5</span>
+                                </div>
+                                <div className="no-scrollbar scroll-touch card-list-contain recent-meals-strip flex gap-3 overflow-x-auto pb-1">
+                                  {recentAnalyses.map((item) => (
+                                    <RecentAnalysisItem key={item.id} item={item} onOpen={handleOpenSavedAnalysis} />
+                                  ))}
+                                </div>
+                              </article>
+
+                              <input
+                                ref={cameraInputRef}
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                className="hidden"
+                                onChange={(e) => handleImagePick(e.target.files?.[0] || null)}
+                              />
+                              <input
+                                ref={galleryInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => handleImagePick(e.target.files?.[0] || null)}
+                              />
+                            </div>
+                          )}
+
+                          {mealStage === "preview" && previewImage && (
+                            <div className="mt-4 space-y-4">
+                              <article className="glass-card rounded-[20px] p-4 shadow-[0_0_0_1px_var(--color-brand-accent-1)_inset]">
+                                <img
+                                  src={previewImage}
+                                  alt={t.previewMeal}
+                                  className="h-64 w-full rounded-2xl border border-brand-accent-1/40 object-cover"
+                                />
+                              </article>
+
+                              <div className="space-y-3">
+                                <Button
+                                  className="h-12 w-full rounded-[18px]"
+                                  onClick={() => setMealStage("analyzing")}
+                                  disabled={!previewImageBase64}
+                                >
+                                  {!previewImageBase64 ? (
+                                    <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                                  ) : (
+                                    <Sparkles className="h-4 w-4 mr-2" />
+                                  )}
+                                  {t.analyzeThis}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  className="h-11 w-full rounded-[18px]"
+                                  onClick={() => {
+                                    setPreviewImage(null);
+                                    setMealStage("camera");
+                                  }}
+                                >
+                                  {t.chooseAnother}
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {mealStage === "clarification" && (
+                            <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-bottom-6 duration-500">
+                              <article className="glass-card overflow-hidden rounded-[32px] border-2 border-brand-accent-1/30 shadow-2xl shadow-brand-accent-1/10">
+                                <div className="bg-gradient-to-br from-brand-accent-1/10 to-transparent p-6">
+                                  <div className="w-16 h-16 rounded-3xl bg-white shadow-lg flex items-center justify-center text-4xl mb-6 animate-bounce-slow">
+                                    🤔
+                                  </div>
+                                  <h3 className="text-2xl font-bold text-foreground">A IA tem uma dúvida...</h3>
+                                  <p className="mt-2 text-sm text-muted-foreground">Para uma análise 100% precisa, preciso de um detalhe:</p>
+                                </div>
+
+                                <div className="px-6 pb-6 space-y-6">
+                                  <div className="bg-brand-accent-1/5 p-5 rounded-[24px] border-l-4 border-brand-accent-1 relative">
+                                    <Sparkles className="absolute -top-2 -right-2 h-6 w-6 text-brand-accent-1/40" />
+                                    <p className="text-foreground font-medium italic leading-relaxed">
+                                      "{aiClarificationQuestion}"
+                                    </p>
+                                  </div>
+
+                                  <div className="space-y-3">
+                                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent-1/70 ml-1">Tua resposta</label>
+                                    <textarea
+                                      value={userClarificationResponse}
+                                      onChange={(e) => setUserClarificationResponse(e.target.value)}
+                                      placeholder="Ex: É um frango grelhado na air fryer com pouco azeite..."
+                                      className="w-full h-36 p-5 rounded-[24px] bg-white/50 border border-glass-border focus:ring-4 focus:ring-brand-accent-1/20 focus:border-brand-accent-1 outline-none text-base transition-all shadow-inner resize-none"
+                                    />
+                                  </div>
+
+                                  <div className="flex gap-3 pt-2">
+                                    <Button
+                                      variant="outline"
+                                      className="flex-1 h-14 rounded-2xl border-glass-border hover:bg-muted/50 text-muted-foreground font-bold"
+                                      onClick={() => {
+                                        setUserClarificationResponse("Não tenho a certeza, analisa como preferires.");
+                                        setMealStage("analyzing");
+                                      }}
+                                    >
+                                      Pular
+                                    </Button>
+                                    <Button
+                                      className="flex-[2] h-14 rounded-2xl bg-brand-accent-2 hover:bg-brand-accent-2/90 font-bold text-lg shadow-xl shadow-brand-accent-2/30 transition-all active:scale-[0.98]"
+                                      disabled={!userClarificationResponse.trim()}
+                                      onClick={() => {
+                                        setMealStage("analyzing");
+                                      }}
+                                    >
+                                      Enviar Resposta
+                                    </Button>
+                                  </div>
+                                </div>
+                              </article>
+                            </div>
+                          )}
+
+                          {mealStage === "result" && activeResult && (
+                            <div className="mt-4 space-y-4 pb-36">
+                              <article className="glass-card animate-enter rounded-[20px] p-5">
+                                {previewImage ? (
+                                  <img
+                                    src={previewImage}
+                                    alt={activeResult.mealName}
+                                    className="h-48 w-full rounded-2xl border border-brand-accent-1/45 object-cover shadow-[0_0_0_1px_var(--color-brand-accent-1)_inset,0_10px_24px_oklch(0.64_0.12_152_/_20%)]"
+                                  />
+                                ) : null}
+                                <h3 className="mt-3 text-xl font-bold">{activeResult.mealName}</h3>
+                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                  <span className="rounded-full border border-brand-accent-1/40 bg-brand-accent-1/20 px-3 py-1 text-xs font-medium text-primary">
+                                    {activeResult.confidence}% {t.accuracy} ✓
+                                  </span>
+                                  <span className="rounded-full border border-glass-border bg-glass px-3 py-1 text-xs">
+                                    {activeResult.cuisineTag}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {appLanguage === "en" ? "Today" : "Hoje"}, {currentTimestamp}
+                                  </span>
+                                </div>
+                              </article>
+
+                              <article className="glass-card animate-enter rounded-[20px] p-5 text-center">
+                                <p className="text-xs text-muted-foreground">{t.totalEstimate}</p>
+                                <p className="mt-1 text-5xl font-bold text-primary">{Number(Math.round(animatedKcal)) || 0}</p>
+                                <p className="text-sm font-medium">{t.estimatedKcal}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {t.basedOnPortions}
+                                </p>
+                                <div className="mt-4">
+                                  <div className="h-3 overflow-hidden rounded-full bg-brand-accent-3/40">
+                                    <div
+                                      className="h-full rounded-full bg-gradient-to-r from-brand-accent-1 to-brand-accent-2 transition-all duration-700"
+                                      style={{ width: `${Math.min(100, activeResult.dailyGoalPercent * portionMultiplier)}%` }}
+                                    />
+                                  </div>
+                                  <p className="mt-2 text-xs text-muted-foreground">
+                                    {t.thisPlateIs} {Number(Math.round(activeResult.dailyGoalPercent * portionMultiplier)) || 0}% {t.ofDailyGoal}
+                                  </p>
+                                </div>
+                              </article>
+
+                              <div className="grid grid-cols-3 gap-2">
+                                {[
+                                  {
+                                    key: "prot",
+                                    label: t.proteins,
+                                    value: animatedProtein,
+                                    target: activeResult.protein * portionMultiplier,
+                                    ring: "var(--color-macro-protein)",
+                                    bg: "bg-macro-protein/10 border-macro-protein/30",
+                                  },
+                                  {
+                                    key: "carb",
+                                    label: t.carbohydrates,
+                                    value: animatedCarbs,
+                                    target: activeResult.carbs * portionMultiplier,
+                                    ring: "var(--color-macro-carbs)",
+                                    bg: "bg-macro-carbs/10 border-macro-carbs/30",
+                                  },
+                                  {
+                                    key: "fat",
+                                    label: t.fats,
+                                    value: animatedFat,
+                                    target: activeResult.fat * portionMultiplier,
+                                    ring: "var(--color-macro-fat)",
+                                    bg: "bg-macro-fat/10 border-macro-fat/30",
+                                  },
+                                ].map((macro, index) => {
+                                  const pct = Math.min(100, (macro.value / Math.max(macro.target, 1)) * 100);
+                                  return (
+                                    <article
+                                      key={macro.key}
+                                      className={`glass-card rounded-[20px] border p-3 animate-enter ${macro.bg}`}
+                                      style={{ animationDelay: `${index * 0.1}s` }}
+                                    >
+                                      <div className="mx-auto mb-2 h-12 w-12">
+                                        <svg viewBox="0 0 48 48" className="h-full w-full -rotate-90">
+                                          <circle cx="24" cy="24" r="18" stroke="var(--color-glass-border)" strokeWidth="5" fill="none" />
+                                          <circle
+                                            cx="24"
+                                            cy="24"
+                                            r="18"
+                                            stroke={macro.ring}
+                                            strokeWidth="5"
+                                            fill="none"
+                                            strokeLinecap="round"
+                                            strokeDasharray={`${(pct / 100) * 113} 113`}
+                                            className="transition-all duration-700"
+                                          />
+                                        </svg>
+                                      </div>
+                                      <p className="text-[11px] text-muted-foreground">{macro.label}</p>
+                                      <p className="text-base font-bold">{Number(Math.round(macro.value)) || 0}g</p>
+                                    </article>
+                                  );
+                                })}
+                              </div>
+
+                              <article className="glass-card rounded-[20px] p-4">
+                                <h4 className="text-sm font-semibold">{t.ingredientsIdentified}</h4>
+                                <div className="mt-3 space-y-2">
+                                  {activeResult.ingredients.map((item, index) => {
+                                    const expanded = expandedIngredient === item.name;
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={item.name}
+                                        onClick={() => setExpandedIngredient((prev) => (prev === item.name ? null : item.name))}
+                                        className="glass-chip animate-enter w-full rounded-xl border border-glass-border bg-glass p-3 text-left"
+                                        style={{ animationDelay: `${index * 0.08}s` }}
+                                      >
+                                        <div className="flex items-start justify-between gap-2">
+                                          <div className="flex items-start gap-2">
+                                            <Check className="mt-0.5 h-4 w-4 text-brand-accent-1" />
+                                            <div>
+                                              <p className="text-sm font-medium">{item.name}</p>
+                                              <p className="text-xs text-muted-foreground">{Math.round(item.calories * portionMultiplier)} kcal</p>
+                                            </div>
+                                          </div>
+                                          <span className="text-xs text-muted-foreground">{expanded ? "−" : "+"}</span>
+                                        </div>
+                                        {expanded ? <p className="mt-2 text-xs text-muted-foreground">{item.note}</p> : null}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </article>
+
+                              <article className="glass-card rounded-[20px] p-4">
+                                <button
+                                  type="button"
+                                  className="flex w-full items-center justify-between"
+                                  onClick={() => setNutritionOpen((prev) => !prev)}
+                                >
+                                  <h4 className="text-sm font-semibold">Detalhes Nutricionais</h4>
+                                  {nutritionOpen ? (
+                                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                </button>
+
+                                {nutritionOpen ? (
+                                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                                    {[
+                                      `🧂 ${t.sodium}: ${Math.round(activeResult.sodiumMg * portionMultiplier)}mg`,
+                                      `🌾 ${t.fiber}: ${(activeResult.fiberG * portionMultiplier).toFixed(1)}g`,
+                                      `🍬 ${t.sugars}: ${(activeResult.sugarsG * portionMultiplier).toFixed(1)}g`,
+                                      `💊 ${t.vitaminA}: ${Math.round(activeResult.vitaminAPct * portionMultiplier)}% ${t.dv}`,
+                                      `💊 ${t.vitaminC}: ${Math.round(activeResult.vitaminCPct * portionMultiplier)}% ${t.dv}`,
+                                      `⚡ ${t.iron}: ${Math.round(activeResult.ironPct * portionMultiplier)}% ${t.dv}`,
+                                      `🦴 ${t.calcium}: ${Math.round(activeResult.calciumPct * portionMultiplier)}% ${t.dv}`,
+                                    ].map((value) => (
+                                      <div key={value} className="rounded-lg border border-glass-border bg-glass px-3 py-2">
+                                        {value}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </article>
+
+                              <article className="glass-card rounded-[20px] border-l-4 border-l-brand-accent-1 p-4">
+                                <h4 className="text-sm font-semibold">💡 {t.insightsForYou}</h4>
+                                <div className="mt-3 space-y-2">
+                                  {activeResult.insights.map((tipItem) => (
+                                    <div key={tipItem} className="rounded-lg border border-glass-border bg-glass px-3 py-2 text-sm">
+                                      {tipItem}
+                                    </div>
+                                  ))}
+                                </div>
+                              </article>
+
+                              <article className="glass-card rounded-[20px] p-4">
+                                <div className="mb-3 flex items-center justify-between">
+                                  <h4 className="text-sm font-semibold">{t.adjustPortion}</h4>
+                                  <span className="rounded-full border border-brand-accent-1/40 bg-brand-accent-1/15 px-2.5 py-1 text-xs font-medium">
+                                    {portionMultiplier}x â€” {t.normalPortion}
+                                  </span>
+                                </div>
+
+                                <Slider
+                                  min={0.5}
+                                  max={2}
+                                  step={0.5}
+                                  value={[portionMultiplier]}
+                                  onValueChange={([value]) => setPortionMultiplier(value)}
+                                />
+
+                                <div className="mt-3 flex justify-between text-[11px] text-muted-foreground">
+                                  <span>0.5x</span>
+                                  <span>1x</span>
+                                  <span>1.5x</span>
+                                  <span>2x</span>
+                                </div>
+                              </article>
+
+                              <div className="frosted-nav fixed bottom-20 left-1/2 z-30 w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-[18px] p-3 sm:max-w-md">
+                                <div className="space-y-2">
+                                  <Button
+                                    className="h-11 w-full"
+                                    onClick={confirmAddToDiary}
+                                    disabled={isSavingMeal || isViewingSavedAnalysis}
+                                  >
+                                    <Check className="h-4 w-4" />
+                                    {isViewingSavedAnalysis
+                                      ? t.viewSaved
+                                      : isSavingMeal
+                                        ? t.saving
+                                        : t.addToDiary}
+                                  </Button>
+                                  <Button variant="outline" className="h-10 w-full" onClick={resetMealFlow}>
+                                    {t.analyzeAnother}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </>
+                  )}
+
+                  {view === "progresso" && (
+                    <>
+                      <div className="glass-card rounded-xl p-4">
+                        <h2 className="text-lg font-semibold">{t.weightHistory}</h2>
+                        {weightHistory.length === 0 ? (
+                          <p className="mt-4 text-sm text-muted-foreground">{appLanguage === "en" ? "No weight logs yet — add your first! 🌿" : "Ainda sem registos de peso — adiciona o teu primeiro! 🌿"}</p>
+                        ) : (
+                          <div className="mt-4 space-y-2">
+                            {weightHistory.map((point) => {
+                              const min = Math.min(...weightHistory.map((item) => item.weight));
+                              const max = Math.max(...weightHistory.map((item) => item.weight));
+                              const pct = ((point.weight - min) / Math.max(max - min, 1)) * 100;
+
+                              return (
+                                <div key={point.week} className="grid grid-cols-[56px_1fr_56px] items-center gap-2 text-xs">
+                                  <span className="text-muted-foreground">{point.week}</span>
+                                  <div className="h-2 overflow-hidden rounded-full bg-brand-accent-1/15">
+                                    <div
+                                      className="h-full rounded-full bg-gradient-to-r from-brand-accent-1 to-brand-accent-2"
+                                      style={{ width: `${Math.max(14, pct)}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-right font-semibold text-foreground">{point.weight.toFixed(1)}kg</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
+
+                      <div className="mt-4 grid grid-cols-3 gap-2">
+                        <article className="glass-card rounded-xl p-3 text-center">
+                          <p className="text-xs text-muted-foreground">Dias seguidos</p>
+                          <p className="text-xl font-bold">{streakDays > 0 ? `${streakDays} 🔥` : "0"}</p>
+                        </article>
+                        <article className="glass-card rounded-xl p-3 text-center">
+                          <p className="text-xs text-muted-foreground">Semana</p>
+                          <p className="text-xl font-bold">{weeklyBars.reduce((sum, day) => sum + day.calories, 0)} kcal</p>
+                        </article>
+                        <article className="glass-card rounded-xl p-3 text-center">
+                          <p className="text-xs text-muted-foreground">Média diária</p>
+                          <p className="text-xl font-bold">{weeklyAverage} kcal</p>
+                        </article>
+                      </div>
+
+                      <div className="glass-card mt-4 rounded-xl p-4">
+                        <h3 className="text-sm font-semibold">Resumo semanal</h3>
+                        <div className="mt-3 grid grid-cols-7 items-end gap-2">
+                          {weeklyBars.map((day) => {
+                            const min = Math.min(...weeklyBars.map((item) => item.calories));
+                            const max = Math.max(...weeklyBars.map((item) => item.calories));
+                            const pct = ((day.calories - min) / Math.max(max - min, 1)) * 100;
+
+                            return (
+                              <div key={day.day} className="flex flex-col items-center gap-2">
+                                <div className="flex h-28 w-full items-end rounded-lg bg-brand-accent-1/10 p-1">
+                                  <div
+                                    className="w-full rounded-md bg-gradient-to-t from-brand-accent-1 to-brand-accent-2"
+                                    style={{ height: `${pct}%` }}
+                                  />
+                                </div>
+                                <span className="text-[11px] text-muted-foreground">{day.day}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-2 gap-3">
+                        {(unlockedAchievements.length > 0
+                          ? unlockedAchievements
+                          : ["Ainda sem dados — começa a registar hoje! 🌿"]
+                        ).map((badge) => (
+                          <article
+                            key={badge}
+                            className="animate-pulse rounded-xl border border-brand-accent-1/40 bg-brand-accent-1/15 p-3 text-sm font-medium"
+                          >
+                            {badge}
+                          </article>
+                        ))}
+                      </div>
+
+                    </>
+                  )}
+
+                  {view === "perfil" && (
+                    <>
+                      <div className="glass-card rounded-xl p-5 text-center">
+                        <div className="mx-auto h-20 w-20 rounded-full border-2 border-brand-accent-2 bg-glass" />
+                        <h2 className="mt-3 text-xl font-semibold">{profile.name || "Utilizadora"}</h2>
+                        <p className="text-sm text-muted-foreground">
+                          {profile.weight}kg → {profile.targetWeight}kg • {profile.city}
+                        </p>
+                      </div>
+
+                      <div className="glass-card mt-4 rounded-xl p-4">
+                        <h3 className="text-sm font-semibold">Resumo do teu plano</h3>
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                          <div className="rounded-xl border border-glass-border bg-glass p-3">
+                            <p className="text-xs text-muted-foreground">Dias de uso</p>
+                            <p className="text-2xl font-bold">{usageDays} dias</p>
+                          </div>
+                          <div className="rounded-xl border border-glass-border bg-glass p-3">
+                            <p className="text-xs text-muted-foreground">Calorias/dia</p>
+                            <p className="text-2xl font-bold">{profile.calorieGoal}</p>
+                          </div>
+                          <div className="rounded-xl border border-glass-border bg-glass p-3">
+                            <p className="text-xs text-muted-foreground">Água/dia</p>
+                            <p className="text-2xl font-bold">{(profile.hydrationGoalMl / 1000).toFixed(1)}L</p>
+                          </div>
+                          <div className="rounded-xl border border-glass-border bg-glass p-3">
+                            <p className="text-xs text-muted-foreground">Peso atual vs desejado</p>
+                            <p className="text-lg font-bold">
+                              {profile.weight}kg <span className="text-muted-foreground">/ {profile.targetWeight}kg</span>
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-glass-border bg-glass p-3 col-span-2">
+                            <p className="text-xs text-muted-foreground">Validade do Acesso</p>
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-bold">
+                                {profile.role === 'admin' ? "🛡️ Acesso Vitalício (Admin)" :
+                                  (() => {
+                                    const expiry = (profile as any).expiry_date || (profile as any).expiryDate;
+                                    if (!expiry) return "Pendente";
+                                    const days = Math.ceil((new Date(expiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                                    return days > 0 ? `${days} dias restantes` : "Acesso Expirado";
+                                  })()
+                                }
+                              </p>
+                              {profile.role !== 'admin' && (
+                                <div className="flex h-2 w-16 overflow-hidden rounded-full bg-muted/30">
+                                  <div className="h-full bg-brand-accent-2" style={{ width: '100%' }} />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="glass-card mt-4 rounded-xl p-4">
+                        <h3 className="text-sm font-semibold">{t.updateWeight}</h3>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {t.weightHint}
+                        </p>
+                        <div className="mt-3 flex items-center gap-2">
+                          <Input
+                            type="number"
+                            value={profile.weight}
+                            onChange={(e) => {
+                              const nextWeight = Number(e.target.value) || 0;
+                              setPreviousWeight(profile.weight);
+                              setProfile((prev) => ({ ...prev, weight: nextWeight }));
+                            }}
+                            className="h-11 rounded-xl bg-glass-muted"
+                          />
+                          <span className="text-sm text-muted-foreground">kg</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid gap-3">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setGeneratedPlan(generatePlan(profile));
+                            setShowPlanPresentation(false);
+                            setView("setup");
+                          }}
+                        >
+                          {t.changePlan}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            setShareMode("weight");
+                            setShareImageUrl(null);
+                            setShowShareSheet(true);
+                          }}
+                        >
+                          {t.shareWeightProgress}
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={async () => {
+                            await supabase.auth.signOut();
+                            window.location.reload();
+                          }}
+                        >
+                          {t.logout}
+                        </Button>
+                      </div>
+                      {!window.matchMedia("(display-mode: standalone)").matches && (
+                        <Button
+                          variant="outline"
+                          onClick={handleInstallClick}
+                          className="w-full h-12 rounded-xl bg-brand-accent-2/5 hover:bg-brand-accent-2/10 text-brand-accent-2 border-brand-accent-2/20 mb-2"
+                        >
+                          📲 Instalar LUMEfit no Telemóvel
+                        </Button>
+                      )}
+                      <p className="mt-4 text-center text-xs text-muted-foreground">LUMEfit v1.0 â€¢ {t.madeForYou}</p>
+                    </>
+                  )}
+                </section>
+              )}
+
+              {view !== "setup" && (
+                <nav className="frosted-nav fixed bottom-3 left-1/2 z-20 flex w-[calc(100%-1.5rem)] -translate-x-1/2 items-center justify-between rounded-xl px-2 py-2 sm:max-w-md">
+                  {[
+                    { key: "home", label: t.navHome, icon: Home },
+                    { key: "refeicoes", label: t.navMeals, icon: UtensilsCrossed },
+                    { key: "progresso", label: t.navProgress, icon: Flame },
+                    { key: "perfil", label: t.navProfile, icon: CircleUserRound },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    const active = view === item.key;
+                    return (
+                      <button
+                        type="button"
+                        key={item.key}
+                        onClick={() => setView(item.key as ViewKey)}
+                        className={`flex min-w-[64px] flex-col items-center rounded-lg px-2 py-1 text-[11px] transition-all ${active ? "bg-brand-accent-3/30 text-brand-accent-2" : "text-muted-foreground"
+                          }`}
+                      >
+                        <Icon className="mb-1 h-4 w-4" />
+                        {item.label}
+                      </button>
                     );
                   })}
-                </div>
-              </div>
+                </nav>
+              )}
 
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                {(unlockedAchievements.length > 0
-                  ? unlockedAchievements
-                  : ["Ainda sem dados — começa a registar hoje! 🌿"]
-                ).map((badge) => (
-                  <article
-                    key={badge}
-                    className="animate-pulse rounded-xl border border-brand-accent-1/40 bg-brand-accent-1/15 p-3 text-sm font-medium"
-                  >
-                    {badge}
-                  </article>
-                ))}
-              </div>
+              {mealStage === "analyzing" && previewImage ? (
+                <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/55 p-4 backdrop-blur-xl">
+                  <div className="glass-card w-full max-w-sm rounded-[24px] p-5 text-center">
+                    <div className="relative mx-auto h-56 overflow-hidden rounded-2xl border border-brand-accent-1/35">
+                      <img src={previewImage} alt="Análise em progresso" className="h-full w-full object-cover" />
+                      <div className="scan-line" />
+                      <div className="radar-ring" />
+                      <div className="focus-corners" />
+                    </div>
 
-            </>
-          )}
-
-          {view === "perfil" && (
-            <>
-              <div className="glass-card rounded-xl p-5 text-center">
-                <div className="mx-auto h-20 w-20 rounded-full border-2 border-brand-accent-2 bg-glass" />
-                <h2 className="mt-3 text-xl font-semibold">{profile.name || "Utilizadora"}</h2>
-                <p className="text-sm text-muted-foreground">
-                  {profile.weight}kg → {profile.targetWeight}kg • {profile.city}
-                </p>
-              </div>
-
-              <div className="glass-card mt-4 rounded-xl p-4">
-                <h3 className="text-sm font-semibold">Resumo do teu plano</h3>
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <div className="rounded-xl border border-glass-border bg-glass p-3">
-                    <p className="text-xs text-muted-foreground">Dias de uso</p>
-                    <p className="text-2xl font-bold">{usageDays} dias</p>
-                  </div>
-                  <div className="rounded-xl border border-glass-border bg-glass p-3">
-                    <p className="text-xs text-muted-foreground">Calorias/dia</p>
-                    <p className="text-2xl font-bold">{profile.calorieGoal}</p>
-                  </div>
-                  <div className="rounded-xl border border-glass-border bg-glass p-3">
-                    <p className="text-xs text-muted-foreground">Água/dia</p>
-                    <p className="text-2xl font-bold">{(profile.hydrationGoalMl / 1000).toFixed(1)}L</p>
-                  </div>
-                  <div className="rounded-xl border border-glass-border bg-glass p-3">
-                    <p className="text-xs text-muted-foreground">Peso atual vs desejado</p>
-                    <p className="text-lg font-bold">
-                      {profile.weight}kg <span className="text-muted-foreground">/ {profile.targetWeight}kg</span>
+                    <p key={analysisMessageIndex} className="mt-4 text-sm text-primary animate-fade-in">
+                      {localizedAnalysisMessages[analysisMessageIndex]}
                     </p>
-                  </div>
-                  <div className="rounded-xl border border-glass-border bg-glass p-3 col-span-2">
-                    <p className="text-xs text-muted-foreground">Validade do Acesso</p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold">
-                        {profile.role === 'admin' ? "🛡️ Acesso Vitalício (Admin)" : 
-                          (() => {
-                            const expiry = (profile as any).expiry_date || (profile as any).expiryDate;
-                            if (!expiry) return "Pendente";
-                            const days = Math.ceil((new Date(expiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-                            return days > 0 ? `${days} dias restantes` : "Acesso Expirado";
-                          })()
-                        }
-                      </p>
-                      {profile.role !== 'admin' && (
-                        <div className="flex h-2 w-16 overflow-hidden rounded-full bg-muted/30">
-                           <div className="h-full bg-brand-accent-2" style={{ width: '100%' }} />
-                        </div>
-                      )}
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-accent-3/40">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-brand-accent-1 to-brand-accent-2 transition-all duration-300"
+                        style={{ width: `${analysisProgress}%` }}
+                      />
                     </div>
                   </div>
                 </div>
-              </div>
+              ) : null}
 
-              <div className="glass-card mt-4 rounded-xl p-4">
-                <h3 className="text-sm font-semibold">{t.updateWeight}</h3>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t.weightHint}
-                </p>
-                <div className="mt-3 flex items-center gap-2">
-                  <Input
-                    type="number"
-                    value={profile.weight}
-                    onChange={(e) => {
-                      const nextWeight = Number(e.target.value) || 0;
-                      setPreviousWeight(profile.weight);
-                      setProfile((prev) => ({ ...prev, weight: nextWeight }));
-                    }}
-                    className="h-11 rounded-xl bg-glass-muted"
-                  />
-                  <span className="text-sm text-muted-foreground">kg</span>
+              {showToast ? (
+                <div className="fixed left-1/2 top-4 z-50 w-[calc(100%-2rem)] -translate-x-1/2 rounded-xl border border-brand-accent-1/35 bg-glass px-4 py-3 text-sm font-medium shadow-[0_8px_24px_oklch(0.64_0.12_152_/_22%)] sm:max-w-sm">
+                  {toastMessage}
                 </div>
-              </div>
+              ) : null}
 
-              <div className="mt-4 grid gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setGeneratedPlan(generatePlan(profile));
-                    setShowPlanPresentation(false);
-                    setView("setup");
-                  }}
-                >
-                  {t.changePlan}
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setShareMode("weight");
-                    setShareImageUrl(null);
-                    setShowShareSheet(true);
-                  }}
-                >
-                  {t.shareWeightProgress}
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={async () => {
-                    await supabase.auth.signOut();
-                    window.location.reload();
-                  }}
-                >
-                  {t.logout}
-                </Button>
-              </div>
-                {!window.matchMedia("(display-mode: standalone)").matches && (
-                  <Button 
-                    variant="outline"
-                    onClick={handleInstallClick}
-                    className="w-full h-12 rounded-xl bg-brand-accent-2/5 hover:bg-brand-accent-2/10 text-brand-accent-2 border-brand-accent-2/20 mb-2"
+              {showMotivationNotification ? (
+                <div className="fixed bottom-24 left-1/2 z-50 w-[calc(100%-2rem)] -translate-x-1/2 rounded-2xl border border-brand-accent-1/40 bg-glass p-4 shadow-[0_10px_30px_oklch(0.64_0.12_152_/_25%)] sm:max-w-sm">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-brand-accent-2">{t.notificationTitle}</p>
+                  <p className="mt-1 text-sm font-medium">{t.notificationBody}</p>
+                  <Button
+                    size="sm"
+                    className="mt-3 w-full rounded-xl"
+                    onClick={() => setShowMotivationNotification(false)}
                   >
-                    📲 Instalar LUMEfit no Telemóvel
+                    {t.understood}
                   </Button>
-                )}
-                <p className="mt-4 text-center text-xs text-muted-foreground">LUMEfit v1.0 â€¢ {t.madeForYou}</p>
-            </>
+                </div>
+              ) : null}
+
+              {showSettingsSheet ? (
+                <div className="fixed inset-0 z-50 flex items-end bg-background/35 p-3 backdrop-blur-sm sm:items-center sm:justify-center">
+                  <div className="glass-card w-full rounded-[24px] p-4 sm:max-w-md">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">{t.settingsTitle}</h3>
+                      <button
+                        type="button"
+                        onClick={() => setShowSettingsSheet(false)}
+                        className="rounded-lg border border-glass-border px-2 py-1 text-sm"
+                      >
+                        {t.close}
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="rounded-xl border border-glass-border bg-glass p-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t.settingsTheme}</p>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <Button
+                            variant={appTheme === "light" ? "default" : "outline"}
+                            className="rounded-xl"
+                            onClick={() => setAppTheme("light")}
+                          >
+                            {t.settingsThemeLight}
+                          </Button>
+                          <Button
+                            variant={appTheme === "dark" ? "default" : "outline"}
+                            className="rounded-xl"
+                            onClick={() => setAppTheme("dark")}
+                          >
+                            {t.settingsThemeDark}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-glass-border bg-glass p-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t.settingsLanguage}</p>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <Button
+                            variant={appLanguage === "pt" ? "default" : "outline"}
+                            className="rounded-xl"
+                            onClick={() => setAppLanguage("pt")}
+                          >
+                            {t.languagePortuguese}
+                          </Button>
+                          <Button
+                            variant={appLanguage === "en" ? "default" : "outline"}
+                            className="rounded-xl"
+                            onClick={() => setAppLanguage("en")}
+                          >
+                            {t.languageEnglish}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {showShareSheet ? (
+                <div className="fixed inset-0 z-50 flex items-end bg-background/35 p-3 backdrop-blur-sm sm:items-center sm:justify-center">
+                  <div className="glass-card w-full rounded-[24px] p-4 sm:max-w-md">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">{t.shareProgress}</h3>
+                      <button
+                        type="button"
+                        onClick={() => setShowShareSheet(false)}
+                        className="rounded-lg border border-glass-border px-2 py-1 text-sm"
+                      >
+                        {t.close}
+                      </button>
+                    </div>
+
+                    <Button className="h-11 w-full rounded-xl" onClick={handleGenerateShareImage} disabled={isGeneratingShareImage}>
+                      <Sparkles className="h-4 w-4" />
+                      {isGeneratingShareImage ? t.shareGenerating : t.shareGenerated}
+                    </Button>
+
+                    {shareImageUrl ? (
+                      <>
+                        <div className="mt-3 overflow-hidden rounded-[20px] border border-glass-border bg-glass">
+                          <img src={shareImageUrl} alt="Imagem de partilha LUMEfit" className="h-72 w-full object-cover" loading="lazy" />
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <Button variant="outline" className="rounded-xl" onClick={() => handleShareChannel("whatsapp")}>
+                            <MessageCircle className="h-4 w-4" /> WhatsApp
+                          </Button>
+                          <Button variant="outline" className="rounded-xl" onClick={() => handleShareChannel("telegram")}>
+                            <Send className="h-4 w-4" /> Telegram
+                          </Button>
+                          <Button variant="outline" className="rounded-xl" onClick={() => handleShareChannel("tiktok")}>
+                            <Music2 className="h-4 w-4" /> TikTok
+                          </Button>
+                          <Button variant="secondary" className="rounded-xl" onClick={handleDownloadShareImage}>
+                            <Download className="h-4 w-4" /> {appLanguage === "en" ? "Download" : "Baixar"}
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="mt-3 text-sm text-muted-foreground">{t.shareHint}</p>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {showConfetti ? (
+                <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden">
+                  {confettiOffsets.map((left, index) => (
+                    <span
+                      key={left}
+                      className="confetti-particle"
+                      style={{
+                        left,
+                        animationDelay: `${index * 0.06}s`,
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : null}
+              {isAdminOpen && (
+                <AdminPanel
+                  onClose={() => setIsAdminOpen(false)}
+                  setToastMessage={setToastMessage}
+                  setShowToast={setShowToast}
+                  setManagedTimeout={setManagedTimeout}
+                />
+              )}
+              {view === "waiting_approval" && profile.role !== 'admin' && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-6 text-center">
+                  <div className="max-w-xs space-y-6 animate-in fade-in zoom-in duration-500">
+                    <div className="relative mx-auto h-24 w-24 flex items-center justify-center rounded-full bg-brand-accent-2/10 text-4xl">
+                      ⏳
+                      <div className="absolute inset-0 rounded-full border-2 border-brand-accent-2 border-t-transparent animate-spin" />
+                    </div>
+                    <div className="space-y-2">
+                      <h2 className="text-2xl font-bold">Aguardando Aprovação</h2>
+                      <p className="text-sm text-muted-foreground">
+                        O seu perfil está em análise pela equipa LUMEfit. <br />
+                        Assim que o seu pagamento for confirmado, terá acesso total ✨
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-glass border border-glass-border">
+                      <p className="text-xs font-bold uppercase tracking-widest text-brand-accent-2 mb-1">Dica</p>
+                      <p className="text-xs text-muted-foreground">Pode fechar o app, nós notificaremos assim que for libertado!</p>
+                    </div>
+
+                  </div>
+                </div>
+              )}
+
+              {view === "blocked" && profile.role !== 'admin' && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-6 text-center">
+                  <div className="max-w-xs space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="mx-auto h-24 w-24 flex items-center justify-center rounded-full bg-red-50 text-5xl">
+                      🚫
+                    </div>
+                    <div className="space-y-3">
+                      <h2 className="text-2xl font-bold">Acesso Suspenso</h2>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Você foi retirado do acesso do app. <br />
+                        Para regularizar a sua conta, entre em contacto com o suporte da LUMEfit no Instagram.
+                      </p>
+                    </div>
+                    <a
+                      href="https://instagram.com/lumefit.ao"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block px-8 py-3 rounded-2xl bg-gradient-to-r from-purple-500 via-red-500 to-yellow-500 text-white font-bold text-sm shadow-lg active:scale-95 transition-transform"
+                    >
+                      @lumefit no Instagram
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {view === "expired" && profile.role !== 'admin' && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-6 text-center">
+                  <div className="max-w-xs space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="mx-auto h-24 w-24 flex items-center justify-center rounded-full bg-orange-50 text-5xl">
+                      ⚠️
+                    </div>
+                    <div className="space-y-3">
+                      <h2 className="text-2xl font-bold">Plano Expirado</h2>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        O seu tempo de acesso ao app terminou. <br />
+                        Renove o plano para o acesso do app!
+                      </p>
+                    </div>
+                    <a
+                      href="https://instagram.com/lumefit.ao"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block px-8 py-3 rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 text-white font-bold text-sm shadow-lg active:scale-95 transition-transform"
+                    >
+                      Renovar no Instagram
+                    </a>
+
+                    <div className="pt-4">
+                      <button
+                        onClick={async () => {
+                          await supabase.auth.signOut();
+                          window.location.reload();
+                        }}
+                        className="text-xs font-bold text-muted-foreground underline underline-offset-4"
+                      >
+                        Sair da Conta
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
           )}
-        </section>
+        </>
       )}
-
-      {view !== "setup" && (
-        <nav className="frosted-nav fixed bottom-3 left-1/2 z-20 flex w-[calc(100%-1.5rem)] -translate-x-1/2 items-center justify-between rounded-xl px-2 py-2 sm:max-w-md">
-            {[
-              { key: "home", label: t.navHome, icon: Home },
-              { key: "refeicoes", label: t.navMeals, icon: UtensilsCrossed },
-              { key: "progresso", label: t.navProgress, icon: Flame },
-              { key: "perfil", label: t.navProfile, icon: CircleUserRound },
-            ].map((item) => {
-            const Icon = item.icon;
-            const active = view === item.key;
-            return (
-              <button
-                type="button"
-                key={item.key}
-                onClick={() => setView(item.key as ViewKey)}
-                className={`flex min-w-[64px] flex-col items-center rounded-lg px-2 py-1 text-[11px] transition-all ${
-                  active ? "bg-brand-accent-3/30 text-brand-accent-2" : "text-muted-foreground"
-                }`}
-              >
-                <Icon className="mb-1 h-4 w-4" />
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
-      )}
-
-      {mealStage === "analyzing" && previewImage ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/55 p-4 backdrop-blur-xl">
-          <div className="glass-card w-full max-w-sm rounded-[24px] p-5 text-center">
-            <div className="relative mx-auto h-56 overflow-hidden rounded-2xl border border-brand-accent-1/35">
-              <img src={previewImage} alt="Análise em progresso" className="h-full w-full object-cover" />
-              <div className="scan-line" />
-              <div className="radar-ring" />
-              <div className="focus-corners" />
-            </div>
-
-            <p key={analysisMessageIndex} className="mt-4 text-sm text-primary animate-fade-in">
-              {localizedAnalysisMessages[analysisMessageIndex]}
-            </p>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-accent-3/40">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-brand-accent-1 to-brand-accent-2 transition-all duration-300"
-                style={{ width: `${analysisProgress}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {showToast ? (
-        <div className="fixed left-1/2 top-4 z-50 w-[calc(100%-2rem)] -translate-x-1/2 rounded-xl border border-brand-accent-1/35 bg-glass px-4 py-3 text-sm font-medium shadow-[0_8px_24px_oklch(0.64_0.12_152_/_22%)] sm:max-w-sm">
-          {toastMessage}
-        </div>
-      ) : null}
-
-      {showMotivationNotification ? (
-        <div className="fixed bottom-24 left-1/2 z-50 w-[calc(100%-2rem)] -translate-x-1/2 rounded-2xl border border-brand-accent-1/40 bg-glass p-4 shadow-[0_10px_30px_oklch(0.64_0.12_152_/_25%)] sm:max-w-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-brand-accent-2">{t.notificationTitle}</p>
-          <p className="mt-1 text-sm font-medium">{t.notificationBody}</p>
-          <Button
-            size="sm"
-            className="mt-3 w-full rounded-xl"
-            onClick={() => setShowMotivationNotification(false)}
-          >
-            {t.understood}
-          </Button>
-        </div>
-      ) : null}
-
-      {showSettingsSheet ? (
-        <div className="fixed inset-0 z-50 flex items-end bg-background/35 p-3 backdrop-blur-sm sm:items-center sm:justify-center">
-          <div className="glass-card w-full rounded-[24px] p-4 sm:max-w-md">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">{t.settingsTitle}</h3>
-              <button
-                type="button"
-                onClick={() => setShowSettingsSheet(false)}
-                className="rounded-lg border border-glass-border px-2 py-1 text-sm"
-              >
-                {t.close}
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div className="rounded-xl border border-glass-border bg-glass p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t.settingsTheme}</p>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <Button
-                    variant={appTheme === "light" ? "default" : "outline"}
-                    className="rounded-xl"
-                    onClick={() => setAppTheme("light")}
-                  >
-                    {t.settingsThemeLight}
-                  </Button>
-                  <Button
-                    variant={appTheme === "dark" ? "default" : "outline"}
-                    className="rounded-xl"
-                    onClick={() => setAppTheme("dark")}
-                  >
-                    {t.settingsThemeDark}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-glass-border bg-glass p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t.settingsLanguage}</p>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <Button
-                    variant={appLanguage === "pt" ? "default" : "outline"}
-                    className="rounded-xl"
-                    onClick={() => setAppLanguage("pt")}
-                  >
-                    {t.languagePortuguese}
-                  </Button>
-                  <Button
-                    variant={appLanguage === "en" ? "default" : "outline"}
-                    className="rounded-xl"
-                    onClick={() => setAppLanguage("en")}
-                  >
-                    {t.languageEnglish}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {showShareSheet ? (
-        <div className="fixed inset-0 z-50 flex items-end bg-background/35 p-3 backdrop-blur-sm sm:items-center sm:justify-center">
-          <div className="glass-card w-full rounded-[24px] p-4 sm:max-w-md">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">{t.shareProgress}</h3>
-              <button
-                type="button"
-                onClick={() => setShowShareSheet(false)}
-                className="rounded-lg border border-glass-border px-2 py-1 text-sm"
-              >
-                {t.close}
-              </button>
-            </div>
-
-            <Button className="h-11 w-full rounded-xl" onClick={handleGenerateShareImage} disabled={isGeneratingShareImage}>
-              <Sparkles className="h-4 w-4" />
-              {isGeneratingShareImage ? t.shareGenerating : t.shareGenerated}
-            </Button>
-
-            {shareImageUrl ? (
-              <>
-                <div className="mt-3 overflow-hidden rounded-[20px] border border-glass-border bg-glass">
-                  <img src={shareImageUrl} alt="Imagem de partilha LUMEfit" className="h-72 w-full object-cover" loading="lazy" />
-                </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Button variant="outline" className="rounded-xl" onClick={() => handleShareChannel("whatsapp")}>
-                    <MessageCircle className="h-4 w-4" /> WhatsApp
-                  </Button>
-                  <Button variant="outline" className="rounded-xl" onClick={() => handleShareChannel("telegram")}>
-                    <Send className="h-4 w-4" /> Telegram
-                  </Button>
-                  <Button variant="outline" className="rounded-xl" onClick={() => handleShareChannel("tiktok")}>
-                    <Music2 className="h-4 w-4" /> TikTok
-                  </Button>
-                  <Button variant="secondary" className="rounded-xl" onClick={handleDownloadShareImage}>
-                    <Download className="h-4 w-4" /> {appLanguage === "en" ? "Download" : "Baixar"}
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <p className="mt-3 text-sm text-muted-foreground">{t.shareHint}</p>
-            )}
-          </div>
-        </div>
-      ) : null}
-
-      {showConfetti ? (
-        <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden">
-          {confettiOffsets.map((left, index) => (
-            <span
-              key={left}
-              className="confetti-particle"
-              style={{
-                left,
-                animationDelay: `${index * 0.06}s`,
-              }}
-            />
-          ))}
-        </div>
-      ) : null}
-      {isAdminOpen && (
-        <AdminPanel 
-          onClose={() => setIsAdminOpen(false)}
-          setToastMessage={setToastMessage}
-          setShowToast={setShowToast}
-          setManagedTimeout={setManagedTimeout}
-        />
-      )}
-      {view === "waiting_approval" && profile.role !== 'admin' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-6 text-center">
-          <div className="max-w-xs space-y-6 animate-in fade-in zoom-in duration-500">
-            <div className="relative mx-auto h-24 w-24 flex items-center justify-center rounded-full bg-brand-accent-2/10 text-4xl">
-              ⏳
-              <div className="absolute inset-0 rounded-full border-2 border-brand-accent-2 border-t-transparent animate-spin" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold">Aguardando Aprovação</h2>
-              <p className="text-sm text-muted-foreground">
-                O seu perfil está em análise pela equipa LUMEfit. <br/>
-                Assim que o seu pagamento for confirmado, terá acesso total ✨
-              </p>
-            </div>
-            <div className="p-4 rounded-2xl bg-glass border border-glass-border">
-              <p className="text-xs font-bold uppercase tracking-widest text-brand-accent-2 mb-1">Dica</p>
-              <p className="text-xs text-muted-foreground">Pode fechar o app, nós notificaremos assim que for libertado!</p>
-            </div>
-            
-          </div>
-        </div>
-      )}
-
-      {view === "blocked" && profile.role !== 'admin' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-6 text-center">
-          <div className="max-w-xs space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
-            <div className="mx-auto h-24 w-24 flex items-center justify-center rounded-full bg-red-50 text-5xl">
-              🚫
-            </div>
-            <div className="space-y-3">
-              <h2 className="text-2xl font-bold">Acesso Suspenso</h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Você foi retirado do acesso do app. <br/>
-                Para regularizar a sua conta, entre em contacto com o suporte da LUMEfit no Instagram.
-              </p>
-            </div>
-            <a 
-              href="https://instagram.com/lumefit.ao" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="inline-block px-8 py-3 rounded-2xl bg-gradient-to-r from-purple-500 via-red-500 to-yellow-500 text-white font-bold text-sm shadow-lg active:scale-95 transition-transform"
-            >
-              @lumefit no Instagram
-            </a>
-          </div>
-        </div>
-      )}
-
-      {view === "expired" && profile.role !== 'admin' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-6 text-center">
-          <div className="max-w-xs space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
-            <div className="mx-auto h-24 w-24 flex items-center justify-center rounded-full bg-orange-50 text-5xl">
-              ⚠️
-            </div>
-            <div className="space-y-3">
-              <h2 className="text-2xl font-bold">Plano Expirado</h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                O seu tempo de acesso ao app terminou. <br/>
-                Renove o plano para o acesso do app!
-              </p>
-            </div>
-            <a 
-              href="https://instagram.com/lumefit.ao" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="inline-block px-8 py-3 rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 text-white font-bold text-sm shadow-lg active:scale-95 transition-transform"
-            >
-              Renovar no Instagram
-            </a>
-            
-            <div className="pt-4">
-               <button
-                  onClick={async () => {
-                    await supabase.auth.signOut();
-                    window.location.reload();
-                  }}
-                  className="text-xs font-bold text-muted-foreground underline underline-offset-4"
-               >
-                 Sair da Conta
-               </button>
-            </div>
-          </div>
-        </div>
-      )}
-        </section>
-      )}
-    </>
-  )}
-</main>
+    </main>
   );
 }
 
