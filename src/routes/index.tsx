@@ -727,6 +727,17 @@ function LumeFitApp() {
   const [nutritionOpen, setNutritionOpen] = useState(false);
   const [expandedIngredient, setExpandedIngredient] = useState<string | null>(null);
   const [recentAnalyses, setRecentAnalyses] = useState<RecentMealAnalysis[]>(initialRecentAnalyses);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem("recent_meal_analyses") || "[]"
+      );
+      setRecentAnalyses(saved);
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
   const [isSavingMeal, setIsSavingMeal] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showToast, setShowToast] = useState(false);
@@ -1830,6 +1841,18 @@ function LumeFitApp() {
       }
 
       setRecentAnalyses((prev) => [baseAnalysis, ...prev].slice(0, MAX_RECENT_MEALS));
+      try {
+        const existing = JSON.parse(
+          localStorage.getItem("recent_meal_analyses") || "[]"
+        );
+        const updated = [baseAnalysis, ...existing].slice(0, 5);
+        localStorage.setItem(
+          "recent_meal_analyses", 
+          JSON.stringify(updated)
+        );
+      } catch (err) {
+        console.error(err);
+      }
     })();
 
     const selectedMealName = localizedMeals[selectedMeal].replace(/^[^ ]+ /, "").toLowerCase();
