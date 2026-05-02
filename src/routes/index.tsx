@@ -2570,7 +2570,7 @@ function LumeFitApp() {
                     value={authPassword}
                     onChange={(e) => setAuthPassword(e.target.value)}
                     className="w-full h-14 rounded-2xl bg-muted/30 border-none px-5 focus:ring-2 focus:ring-brand-accent-2 transition-all outline-none font-medium"
-                    placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                    placeholder="A tua palavra-passe"
                     required
                   />
                 </div>
@@ -3365,7 +3365,7 @@ function LumeFitApp() {
                                     <textarea
                                       value={userClarificationResponse}
                                       onChange={(e) => setUserClarificationResponse(e.target.value)}
-                                      placeholder="Ex: É um frango grelhado na air fryer com pouco azeite..."
+                                      placeholder="Ex: E um frango grelhado na air fryer com pouco azeite..."
                                       className="w-full h-36 p-5 rounded-[24px] bg-white/50 border border-glass-border focus:ring-4 focus:ring-brand-accent-1/20 focus:border-brand-accent-1 outline-none text-base transition-all shadow-inner resize-none"
                                     />
                                   </div>
