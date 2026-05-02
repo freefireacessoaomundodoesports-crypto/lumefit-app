@@ -719,6 +719,7 @@ function LumeFitApp() {
 
   const [mealStage, setMealStage] = useState<MealFlowStage>("camera");
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [descricaoPrato, setDescricaoPrato] = useState("");
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [analysisMessageIndex, setAnalysisMessageIndex] = useState(0);
   const [activeResult, setActiveResult] = useState<MockMealResult | null>(null);
@@ -1344,6 +1345,7 @@ function LumeFitApp() {
           body: {
             type: 'analysis',
             image: previewImageBase64,
+            user_description: descricaoPrato,
             data: { context: userClarificationResponse }
           }
         });
@@ -1855,6 +1857,7 @@ function LumeFitApp() {
       previewObjectUrlRef.current = null;
     }
     setPreviewImage(null);
+    setDescricaoPrato("");
     setActiveResult(null);
     setPortionMultiplier(1);
     setNutritionOpen(false);
@@ -3232,6 +3235,29 @@ function LumeFitApp() {
                                   className="h-64 w-full rounded-2xl border border-brand-accent-1/40 object-cover"
                                 />
                               </article>
+
+                              <div className="space-y-2">
+                                <label className="block text-sm font-medium text-foreground ml-1">O que tem no prato? (opcional)</label>
+                                <Input
+                                  value={descricaoPrato}
+                                  onChange={(e) => setDescricaoPrato(e.target.value)}
+                                  placeholder="Ex: xima, cacana, frango grelhado..."
+                                  className="h-12 rounded-[16px] bg-glass-muted border-glass-border focus-visible:ring-brand-accent-2"
+                                />
+                                <div className="no-scrollbar flex overflow-x-auto gap-2 py-1 pb-2 scroll-smooth" style={{ scrollSnapType: 'x mandatory' }}>
+                                  {["🍽️ Xima", "🥬 Matapa", "🐟 Peixe", "🍗 Frango", "🥩 Carne", "🫘 Feijão", "🍚 Arroz", "🥗 Salada", "🌿 Cacana", "🦐 Camarão", "🍌 Banana", "🥜 Amendoim"].map((chip) => (
+                                    <button
+                                      key={chip}
+                                      type="button"
+                                      onClick={() => setDescricaoPrato((prev) => prev ? `${prev}, ${chip.split(' ')[1]}` : chip.split(' ')[1])}
+                                      className="whitespace-nowrap rounded-full bg-glass-muted border border-glass-border px-3 py-1.5 text-sm transition-colors active:bg-brand-accent-2/20 active:border-brand-accent-2/50"
+                                      style={{ scrollSnapAlign: 'start' }}
+                                    >
+                                      {chip}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
 
                               <div className="space-y-3">
                                 <Button
