@@ -754,6 +754,22 @@ function LumeFitApp() {
   const [authError, setAuthError] = useState<string | null>(null);
 
   const [showSplash, setShowSplash] = useState(true);
+  const [splashAnimFinished, setSplashAnimFinished] = useState(false);
+  const [mountSplash, setMountSplash] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSplashAnimFinished(true);
+    }, 1700);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!showSplash && splashAnimFinished) {
+      const timer = setTimeout(() => setMountSplash(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [showSplash, splashAnimFinished]);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isOnline, setIsOnline] = useState(true);
@@ -2556,23 +2572,39 @@ function LumeFitApp() {
         </div>
       ) : (
         <>
-          {showSplash ? (
-            <div className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center transition-opacity duration-500">
-              <div className="flex flex-col items-center justify-center animate-in zoom-in fade-in duration-700">
+          {mountSplash && (
+            <div className={`fixed inset-0 z-[100] bg-[#ffffff] flex flex-col items-center justify-center transition-opacity duration-300 ${!showSplash && splashAnimFinished ? 'opacity-0' : 'opacity-100'}`}>
+              <div className="flex flex-col items-center justify-center" style={{ animation: 'fadeIn 0.6s ease-out forwards', opacity: 0, willChange: 'opacity, transform' }}>
                 <img
                   src="/lume-logo.png"
                   alt="LUMEfit Logo"
-                  className="w-56 h-56 object-contain drop-shadow-sm animate-[pulse_2s_ease-in-out_infinite]"
+                  className="w-40 h-40 object-contain drop-shadow-sm"
                 />
                 <div className="mt-8 flex flex-col items-center gap-3">
-                  <div className="h-6 w-6 rounded-full border-[3px] border-brand-accent-2 border-t-transparent animate-spin" />
-                  <p className="text-[10px] text-brand-accent-2 font-bold uppercase tracking-widest animate-[pulse_1.5s_ease-in-out_infinite]">
-                    A carregar os dados...
+                  <div className="relative w-[120px] h-[3px] bg-[#2d4a38]/10 rounded-md overflow-hidden">
+                    <div className="absolute top-0 left-0 h-full bg-[#2ecc71] rounded-md"
+                      style={{ animation: 'fillBar 1.4s ease-out 0.4s forwards', width: '0%', willChange: 'width' }} />
+                  </div>
+                  <p className="text-[13px] font-medium" style={{ color: 'rgba(45,74,56,0.5)' }}>
+                    A preparar o teu plano...
                   </p>
                 </div>
               </div>
+              <style dangerouslySetInnerHTML={{
+                __html: `
+                @keyframes fillBar {
+                  0% { width: 0%; }
+                  100% { width: 100%; }
+                }
+                @keyframes fadeIn {
+                  0% { opacity: 0; }
+                  100% { opacity: 1; }
+                }
+              `}} />
             </div>
-          ) : (
+          )}
+
+          {(!mountSplash || (!showSplash && splashAnimFinished)) && (
             <section className="mx-auto flex min-h-screen w-full max-w-lg flex-col bg-background px-4 pt-16 pb-28">
 
               {showInstallPrompt && (
