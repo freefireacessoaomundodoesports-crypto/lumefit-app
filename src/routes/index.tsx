@@ -1834,7 +1834,6 @@ function LumeFitApp() {
           protein,
           carbs,
           fat,
-          photo_url: compressedImage,
           timestamp: nextEntry.timestamp
         });
         if (insertError) console.error('Erro ao salvar no Supabase:', insertError);
