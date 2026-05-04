@@ -205,6 +205,34 @@ const LEGACY_PROFILE_KEY = "perfil_de_integracao";
 const MAX_RECENT_MEALS = 5;
 const MAX_RECENT_IMAGE_LENGTH = 150000;
 
+const getDailyCredits = () => {
+  try {
+    const stored = localStorage.getItem("lumefit_credits");
+    if (!stored) return 5;
+    const data = JSON.parse(stored);
+    const today = new Date().toISOString().split("T")[0];
+    if (data.date !== today) {
+      const fresh = { credits: 5, date: today };
+      localStorage.setItem("lumefit_credits", JSON.stringify(fresh));
+      return 5;
+    }
+    return data.credits;
+  } catch { return 5; }
+};
+
+const deductCredit = () => {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const current = getDailyCredits();
+    const updated = {
+      credits: Math.max(0, current - 1),
+      date: today
+    };
+    localStorage.setItem("lumefit_credits", JSON.stringify(updated));
+    return updated.credits;
+  } catch { return 0; }
+};
+
 
 const ANALYSIS_MESSAGES: Record<AppLanguage, string[]> = {
   pt: [
@@ -738,6 +766,14 @@ function LumeFitApp() {
       console.error(e);
     }
   }, []);
+
+  const [credits, setCredits] = useState(getDailyCredits);
+
+  useEffect(() => {
+    setCredits(getDailyCredits());
+  }, []);
+
+
   const [isSavingMeal, setIsSavingMeal] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showToast, setShowToast] = useState(false);
@@ -888,6 +924,18 @@ function LumeFitApp() {
       fat: 39,
     },
   });
+
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("lumefit_v1");
+      if (stored) {
+        const data = JSON.parse(stored);
+        setIsAdmin(data?.profile?.role === "admin");
+      }
+    } catch { setIsAdmin(false); }
+  }, []);
 
   const [entries, setEntries] = useState<MealEntry[]>([]);
   const [entriesByDay, setEntriesByDay] = useState<Record<string, MealEntry[]>>({});
@@ -1374,6 +1422,10 @@ function LumeFitApp() {
             image: previewImageBase64,
             user_description: descricaoPrato,
             data: { context: userClarificationResponse }
+          },
+          headers: {
+            'x-user-credits': credits.toString(),
+            'x-user-role': isAdmin ? 'admin' : 'user'
           }
         });
 
@@ -1425,6 +1477,10 @@ function LumeFitApp() {
         setMealStage("result");
         setUserClarificationResponse(""); // Reset for next time
         setAiClarificationQuestion(null);
+        if (!isAdmin) {
+          const remaining = deductCredit();
+          setCredits(remaining);
+        }
       } catch (err: any) {
         setToastMessage("Erro na análise: " + err.message);
         setShowToast(true);
@@ -3231,18 +3287,37 @@ function LumeFitApp() {
                                   Tira uma foto do teu prato e a IA faz o resto ✨
                                 </p>
 
+                                {!isAdmin && (
+                                  <div style={{
+                                    display: 'flex', alignItems: 'center', gap: 8,
+                                    borderRadius: 12, padding: '10px 16px',
+                                    marginTop: 12, width: 'fit-content', margin: '12px auto 0 auto',
+                                    fontSize: 13, fontWeight: 600,
+                                    background: credits >= 3 ? 'rgba(46,204,113,0.10)' : credits > 0 ? 'rgba(243,156,18,0.10)' : 'rgba(231,76,60,0.10)',
+                                    border: credits >= 3 ? '1px solid rgba(46,204,113,0.30)' : credits > 0 ? '1px solid rgba(243,156,18,0.30)' : '1px solid rgba(231,76,60,0.30)',
+                                    color: credits >= 3 ? '#1a7a45' : credits > 0 ? '#d68910' : '#c0392b',
+                                  }}>
+                                    <span>{credits === 0 ? '🚫' : '⚡'}</span>
+                                    <span>{credits === 0 ? 'Créditos esgotados — renova à meia-noite' : `${credits} créditos restantes hoje`}</span>
+                                  </div>
+                                )}
+
                                 <div className="mt-4 grid grid-cols-2 gap-3">
                                   <Button
-                                    onClick={() => cameraInputRef.current?.click()}
+                                    onClick={() => { if (!isAdmin && credits <= 0) return; cameraInputRef.current?.click(); }}
                                     className="camera-pulse h-14 rounded-[18px] text-sm"
+                                    disabled={!isAdmin && credits <= 0}
+                                    style={(!isAdmin && credits <= 0) ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
                                   >
                                     <Camera className="h-4 w-4" />
                                     Tirar Foto
                                   </Button>
                                   <Button
                                     variant="outline"
-                                    onClick={() => galleryInputRef.current?.click()}
+                                    onClick={() => { if (!isAdmin && credits <= 0) return; galleryInputRef.current?.click(); }}
                                     className="h-14 rounded-[18px] border-brand-accent-1/40 bg-glass text-primary"
+                                    disabled={!isAdmin && credits <= 0}
+                                    style={(!isAdmin && credits <= 0) ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
                                   >
                                     <ImagePlus className="h-4 w-4" />
                                     Carregar da Galeria
