@@ -1413,23 +1413,31 @@ function LumeFitApp() {
       setAnalysisMessageIndex((prev) => (prev + 1) % localizedAnalysisMessages.length);
     }, 1200);
 
+    const invokeAnalysis = async () => {
+      const { data, error } = await supabase.functions.invoke('analyze-meal', {
+        body: {
+          type: 'analysis',
+          image: previewImageBase64,
+          user_description: descricaoPrato,
+          data: { context: userClarificationResponse }
+        }
+      });
+      if (error) throw error;
+      return data;
+    };
+
     const runAnalysis = async () => {
       if (!previewImageBase64) return;
       try {
-        const { data: aiResult, error } = await supabase.functions.invoke('analyze-meal', {
-          body: {
-            type: 'analysis',
-            image: previewImageBase64,
-            user_description: descricaoPrato,
-            data: { context: userClarificationResponse }
-          },
-          headers: {
-            'x-user-credits': credits.toString(),
-            'x-user-role': isAdmin ? 'admin' : 'user'
-          }
-        });
+        let aiResult: any;
+        try {
+          aiResult = await invokeAnalysis();
+        } catch (_firstErr) {
+          // Retry silencioso após 1.5s
+          await new Promise((res) => setTimeout(res, 1500));
+          aiResult = await invokeAnalysis();
+        }
 
-        if (error) throw error;
         if (aiResult?.error) throw new Error(aiResult.message || "Erro interno na análise da IA.");
 
         if (aiResult.status === "DUVIDA" && !userClarificationResponse) {
