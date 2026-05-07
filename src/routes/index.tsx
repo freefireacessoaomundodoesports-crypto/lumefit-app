@@ -211,29 +211,33 @@ const getMozambiqueDate = () => {
   return mozTime.toISOString().split("T")[0];
 };
 
-const getDailyCredits = () => {
+const getDailyCreditsFromDB = async (userId: string): Promise<number> => {
   try {
-    const stored = localStorage.getItem("lumefit_credits");
-    if (!stored) return 5;
-    const data = JSON.parse(stored);
     const today = getMozambiqueDate();
-    if (data.date !== today) {
-      const fresh = { credits: 5, date: today };
-      localStorage.setItem("lumefit_credits", JSON.stringify(fresh));
+    const { data, error } = await supabase
+      .from('user_credits')
+      .select('credits, last_reset_date')
+      .eq('user_id', userId)
+      .single();
+    if (error || !data) {
+      await supabase.from('user_credits').insert({ user_id: userId, credits: 5, last_reset_date: today });
+      return 5;
+    }
+    if (data.last_reset_date !== today) {
+      await supabase.from('user_credits').update({ credits: 5, last_reset_date: today }).eq('user_id', userId);
       return 5;
     }
     return data.credits;
   } catch { return 5; }
 };
 
-const deductCredit = () => {
+const deductCreditFromDB = async (userId: string): Promise<number> => {
   try {
-    const today = getMozambiqueDate();
-    const current = getDailyCredits();
+    const current = await getDailyCreditsFromDB(userId);
     if (current <= 0) return 0;
-    const updated = { credits: current - 1, date: today };
-    localStorage.setItem("lumefit_credits", JSON.stringify(updated));
-    return updated.credits;
+    const next = current - 1;
+    await supabase.from('user_credits').update({ credits: next }).eq('user_id', userId);
+    return next;
   } catch { return 0; }
 };
 
@@ -796,11 +800,9 @@ function LumeFitApp() {
     }
   }, []);
 
-  const [credits, setCredits] = useState(getDailyCredits);
+  const [credits, setCredits] = useState(5);
 
-  useEffect(() => {
-    setCredits(getDailyCredits());
-  }, []);
+
 
 
   const [isSavingMeal, setIsSavingMeal] = useState(false);
@@ -823,6 +825,12 @@ function LumeFitApp() {
   const [animatedFat, setAnimatedFat] = useState(0);
 
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      getDailyCreditsFromDB(session.user.id).then(setCredits);
+    }
+  }, [session]);
   const [authView, setAuthView] = useState<"login" | "register">("login");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -1539,8 +1547,8 @@ function LumeFitApp() {
         setMealStage("result");
         setUserClarificationResponse(""); // Reset for next time
         setAiClarificationQuestion(null);
-        if (!isAdmin) {
-          const remaining = deductCredit();
+        if (!isAdmin && session) {
+          const remaining = await deductCreditFromDB(session.user.id);
           setCredits(remaining);
         }
       } catch (err: any) {
