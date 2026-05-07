@@ -128,11 +128,11 @@ Deno.serve(async (req: Request) => {
       generationConfig: {
         temperature: 0.2,
         topP: 0.8,
-        maxOutputTokens: 2048,
+        maxOutputTokens: 8192,
       }
     };
 
-    const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash-002", "gemini-1.5-flash-001"];
+    const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash-exp", "gemini-2.0-flash-001"];
     let geminiData: any = null;
     let lastError = "";
     for (const model of GEMINI_MODELS) {
@@ -158,20 +158,35 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const allParts = geminiData?.candidates?.[0]?.content?.parts || [];
+    let rawText = "";
+    for (const p of allParts) {
+      if (p.text && !p.thought) {
+        rawText += p.text;
+      }
+    }
 
     // Clean JSON from potential markdown wrappers
     let cleaned = rawText.trim();
-    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      cleaned = jsonMatch[0];
+
+    // Remover blocos de "thinking" do gemini-2.5
+    cleaned = cleaned.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "").trim();
+    cleaned = cleaned.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+
+    // Extrair apenas o JSON
+    const jsonStart = cleaned.indexOf("{");
+    const jsonEnd = cleaned.lastIndexOf("}");
+    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+      cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
     }
 
     let result: any;
     try {
       result = JSON.parse(cleaned);
     } catch (_parseErr) {
-      console.error("JSON parse error. Raw text START>>>", rawText.substring(0, 500), "<<<END");
+      console.error("RAWTEXT_LENGTH:", rawText.length);
+      console.error("RAWTEXT_CHARS_0_100:", rawText.substring(0, 100));
+      console.error("RAWTEXT_CHARS_LAST_100:", rawText.substring(rawText.length - 100));
       return new Response(
         JSON.stringify({ error: true, message: "Não foi possível processar a resposta da IA." }),
         { status: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
@@ -193,7 +208,7 @@ Deno.serve(async (req: Request) => {
     console.error("Unhandled error in analyze-meal:", err);
     return new Response(
       JSON.stringify({ error: true, message: err?.message || "Erro interno do servidor." }),
-      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
     );
   }
 });
