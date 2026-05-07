@@ -132,33 +132,36 @@ Deno.serve(async (req: Request) => {
       }
     };
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-
-    const geminiResponse = await fetch(geminiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(geminiPayload),
-    });
-
-    if (!geminiResponse.ok) {
+    const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash-002", "gemini-1.5-flash-001"];
+    let geminiData: any = null;
+    let lastError = "";
+    for (const model of GEMINI_MODELS) {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+      const geminiResponse = await fetch(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(geminiPayload),
+      });
+      if (geminiResponse.ok) {
+        geminiData = await geminiResponse.json();
+        console.log("Model used:", model);
+        break;
+      }
       const errorText = await geminiResponse.text();
-      console.error("Gemini API error:", geminiResponse.status, errorText);
+      lastError = `${model}: ${geminiResponse.status} - ${errorText}`;
+      console.error("Model failed:", lastError);
+    }
+    if (!geminiData) {
       return new Response(
-        JSON.stringify({ error: true, message: `Erro na API Gemini: ${geminiResponse.status}` }),
-        { status: 502, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+        JSON.stringify({ error: true, message: `Todos os modelos falharam: ${lastError}` }),
+        { status: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
       );
     }
 
-    const geminiData = await geminiResponse.json();
     const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     // Clean JSON from potential markdown wrappers
-    let cleaned = rawText
-      .replace(/```json\s*/gi, "")
-      .replace(/```\s*/g, "")
-      .trim();
-
-    // Extract JSON object if there's extra text
+    let cleaned = rawText.trim();
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       cleaned = jsonMatch[0];
@@ -168,10 +171,10 @@ Deno.serve(async (req: Request) => {
     try {
       result = JSON.parse(cleaned);
     } catch (_parseErr) {
-      console.error("JSON parse error. Raw text:", rawText);
+      console.error("JSON parse error. Raw text START>>>", rawText.substring(0, 500), "<<<END");
       return new Response(
         JSON.stringify({ error: true, message: "Não foi possível processar a resposta da IA." }),
-        { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+        { status: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
       );
     }
 

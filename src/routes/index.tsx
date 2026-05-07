@@ -205,12 +205,18 @@ const LEGACY_PROFILE_KEY = "perfil_de_integracao";
 const MAX_RECENT_MEALS = 5;
 const MAX_RECENT_IMAGE_LENGTH = 150000;
 
+const getMozambiqueDate = () => {
+  const now = new Date();
+  const mozTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+  return mozTime.toISOString().split("T")[0];
+};
+
 const getDailyCredits = () => {
   try {
     const stored = localStorage.getItem("lumefit_credits");
     if (!stored) return 5;
     const data = JSON.parse(stored);
-    const today = new Date().toISOString().split("T")[0];
+    const today = getMozambiqueDate();
     if (data.date !== today) {
       const fresh = { credits: 5, date: today };
       localStorage.setItem("lumefit_credits", JSON.stringify(fresh));
@@ -222,12 +228,10 @@ const getDailyCredits = () => {
 
 const deductCredit = () => {
   try {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getMozambiqueDate();
     const current = getDailyCredits();
-    const updated = {
-      credits: Math.max(0, current - 1),
-      date: today
-    };
+    if (current <= 0) return 0;
+    const updated = { credits: current - 1, date: today };
     localStorage.setItem("lumefit_credits", JSON.stringify(updated));
     return updated.credits;
   } catch { return 0; }
@@ -620,6 +624,31 @@ async function compressImageForStorage(imageSource: string) {
   // Qualidade reduzida para 0.4 para gerar um "código" (Base64) ultra leve
   return canvas.toDataURL("image/jpeg", 0.4);
 }
+
+async function compressImageForAnalysis(imageSource: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const maxWidth = 800;
+      const scale = Math.min(maxWidth / img.width, 1);
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Could not get canvas context"));
+        return;
+      }
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.7));
+    };
+    img.onerror = () => reject(new Error("Failed to load image"));
+    img.src = imageSource;
+  });
+}
+
 
 const initialRecentAnalyses: RecentMealAnalysis[] = [];
 
@@ -1083,7 +1112,28 @@ function LumeFitApp() {
     setShowToast(false);
     setToastMessage("");
     setIsViewingSavedAnalysis(false);
+    setCredits(5);
+    try {
+      const today = getMozambiqueDate();
+      localStorage.setItem("lumefit_credits", JSON.stringify({ credits: 5, date: today }));
+    } catch {}
   }, []);
+
+  useEffect(() => {
+    const checkMidnight = () => {
+      const now = new Date();
+      // Moçambique é UTC+2
+      const mozTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+      const hours = mozTime.getUTCHours();
+      const minutes = mozTime.getUTCMinutes();
+      if (hours === 0 && minutes === 0) {
+        resetDailyStates();
+      }
+    };
+
+    const interval = setInterval(checkMidnight, 60000);
+    return () => clearInterval(interval);
+  }, [resetDailyStates]);
 
   useEffect(() => {
     if (!session) return;
@@ -1427,7 +1477,11 @@ function LumeFitApp() {
     };
 
     const runAnalysis = async () => {
-      if (!previewImageBase64) return;
+      if (!previewImageBase64) {
+        setMealStage("camera");
+        return;
+      }
+      console.log("Image size:", previewImageBase64.length);
       try {
         let aiResult: any;
         try {
@@ -1502,7 +1556,7 @@ function LumeFitApp() {
       clearInterval(progressTick);
       clearInterval(msgTick);
     };
-  }, [mealStage, previewImage, userClarificationResponse, profile.calorieGoal, localizedAnalysisMessages.length, setManagedTimeout]);
+  }, [mealStage, previewImageBase64, userClarificationResponse, profile.calorieGoal, localizedAnalysisMessages.length, setManagedTimeout]);
 
   useEffect(() => {
     if (!activeResult || mealStage !== "result") return;
@@ -1808,19 +1862,36 @@ function LumeFitApp() {
   const handleImagePick = useCallback((file: File | null) => {
     if (!file) return;
 
+    const processImage = async (imgSrc: string, isOffline: boolean) => {
+      try {
+        const compressed = await compressImageForAnalysis(imgSrc);
+        if (isOffline) {
+          const pendingItem = { id: Date.now(), name: file.name, image: compressed };
+          const newQueue = [pendingItem, ...pendingAnalyses];
+          setPendingAnalyses(newQueue);
+          localStorage.setItem("lume_offline_queue", JSON.stringify(newQueue));
+          setToastMessage(appLanguage === "en" ? "📥 Offline! Image saved to queue." : "📥 Sem internet! Foto guardada na fila.");
+          setShowToast(true);
+          setManagedTimeout(() => setShowToast(false), 3000);
+        } else {
+          setPreviewImageBase64(compressed);
+        }
+      } catch (err) {
+        console.error("Compression failed:", err);
+        if (isOffline) {
+          const pendingItem = { id: Date.now(), name: file.name, image: imgSrc };
+          const newQueue = [pendingItem, ...pendingAnalyses];
+          setPendingAnalyses(newQueue);
+          localStorage.setItem("lume_offline_queue", JSON.stringify(newQueue));
+        } else {
+          setPreviewImageBase64(imgSrc);
+        }
+      }
+    };
+
     if (!navigator.onLine) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        const pendingItem = { id: Date.now(), name: file.name, image: base64 };
-        const newQueue = [pendingItem, ...pendingAnalyses];
-        setPendingAnalyses(newQueue);
-        localStorage.setItem("lume_offline_queue", JSON.stringify(newQueue));
-
-        setToastMessage(appLanguage === "en" ? "📥 Offline! Image saved to queue." : "📥 Sem internet! Foto guardada na fila.");
-        setShowToast(true);
-        setManagedTimeout(() => setShowToast(false), 3000);
-      };
+      reader.onloadend = () => void processImage(reader.result as string, true);
       reader.readAsDataURL(file);
       return;
     }
@@ -1833,18 +1904,13 @@ function LumeFitApp() {
     previewObjectUrlRef.current = fileUrl;
     setPreviewImage(fileUrl);
 
-    // Converter para base64 para a IA
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPreviewImageBase64(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    void processImage(fileUrl, false);
 
     setIsViewingSavedAnalysis(false);
     setMealStage("preview");
     setNutritionOpen(false);
     setExpandedIngredient(null);
-  }, []);
+  }, [appLanguage, pendingAnalyses, setManagedTimeout]);
 
   const confirmAddToDiary = useCallback(() => {
     if (!activeResult) return;
@@ -1870,7 +1936,7 @@ function LumeFitApp() {
     };
 
     setIsSavingMeal(true);
-    setEntries((prev) => [nextEntry, ...prev]);
+    // Não adiciona localmente — vai buscar do Supabase após guardar
     void (async () => {
       let compressedImage: string | null = null;
 
@@ -1901,6 +1967,29 @@ function LumeFitApp() {
           timestamp: nextEntry.timestamp
         });
         if (insertError) console.error('Erro ao salvar no Supabase:', insertError);
+
+        const todayKey = getDateKey();
+        const { data: freshMeals } = await supabase
+          .from("meals")
+          .select("*")
+          .eq("user_id", session.user.id)
+          .gte("timestamp", todayKey + "T00:00:00")
+          .lte("timestamp", todayKey + "T23:59:59");
+        if (freshMeals) {
+          const mapped = freshMeals.map((m) => ({
+            id: m.id,
+            meal: m.meal_type as MealType,
+            foodName: m.food_name,
+            calories: m.calories,
+            protein: Number(m.protein),
+            carbs: Number(m.carbs),
+            fat: Number(m.fat),
+            quantity: Number(m.quantity || 1),
+            timestamp: m.timestamp,
+            photo: m.photo_url,
+          }));
+          setEntries(mapped);
+        }
       }
 
       setRecentAnalyses((prev) => [baseAnalysis, ...prev].slice(0, MAX_RECENT_MEALS));
