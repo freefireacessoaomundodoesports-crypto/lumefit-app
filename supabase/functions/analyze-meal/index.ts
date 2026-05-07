@@ -17,6 +17,8 @@ REGRAS CRÍTICAS:
 4. Se não reconheceres um alimento, estima por textura, cor e tamanho. Indica com "(estimativa)" na observação.
 5. Responde SEMPRE em português de Moçambique.
 6. O campo "pais_origem" deve refletir a origem do prato (ex: "Moçambique", "Portugal", "Brasil", "EUA").
+7. Estima as porções com base no tamanho VISUAL do prato — usa referências como: prato normal tem 25cm de diâmetro. Uma porção de arroz que ocupa 1/4 do prato = ~150g = ~195 kcal. Um filé de peixe médio visível = ~150g. Sé conservador nas estimativas.
+8. Para pratos leves (peixe grelhado, saladas, vegetais cozidos), nunca ultrapasses 700 kcal sem justificação clara de porção grande visível.
 
 FORMATO DE RESPOSTA OBRIGATÓRIO — Responde APENAS com JSON puro, sem markdown, sem blocos de código:
 {
@@ -132,7 +134,7 @@ Deno.serve(async (req: Request) => {
       }
     };
 
-    const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash-exp", "gemini-2.0-flash-001"];
+    const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash-exp"];
     let geminiData: any = null;
     let lastError = "";
     for (const model of GEMINI_MODELS) {
@@ -150,6 +152,7 @@ Deno.serve(async (req: Request) => {
       const errorText = await geminiResponse.text();
       lastError = `${model}: ${geminiResponse.status} - ${errorText}`;
       console.error("Model failed:", lastError);
+      console.warn("ALERTA: Modelo falhou, verificar lista GEMINI_MODELS:", model);
     }
     if (!geminiData) {
       return new Response(
