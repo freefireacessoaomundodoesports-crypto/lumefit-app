@@ -134,25 +134,46 @@ Deno.serve(async (req: Request) => {
       }
     };
 
-    const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-preview-04-17", "gemini-2.0-flash-exp"];
+    const GEMINI_MODELS = [
+      "gemini-2.5-flash",
+      "gemini-flash-latest",
+      "gemini-2.5-flash-lite",
+      "gemini-2.5-pro",
+    ];
+
     let geminiData: any = null;
     let lastError = "";
+
     for (const model of GEMINI_MODELS) {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-      const geminiResponse = await fetch(geminiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(geminiPayload),
-      });
-      if (geminiResponse.ok) {
-        geminiData = await geminiResponse.json();
-        console.log("Model used:", model);
-        break;
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        
+        const geminiResponse = await fetch(geminiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(geminiPayload),
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (geminiResponse.ok) {
+          geminiData = await geminiResponse.json();
+          console.log("Model used:", model);
+          break;
+        }
+        
+        const errorText = await geminiResponse.text();
+        lastError = `${model}: ${geminiResponse.status} - ${errorText}`;
+        console.error("Model failed:", lastError);
+        console.warn("ALERTA: Modelo falhou, verificar lista GEMINI_MODELS:", model);
+        
+      } catch (fetchErr: any) {
+        lastError = `${model}: fetch error - ${fetchErr.message}`;
+        console.error("Fetch error for model:", model, fetchErr.message);
       }
-      const errorText = await geminiResponse.text();
-      lastError = `${model}: ${geminiResponse.status} - ${errorText}`;
-      console.error("Model failed:", lastError);
-      console.warn("ALERTA: Modelo falhou, verificar lista GEMINI_MODELS:", model);
     }
     if (!geminiData) {
       return new Response(
