@@ -1472,16 +1472,27 @@ function LumeFitApp() {
     }, 1200);
 
     const invokeAnalysis = async () => {
-      const { data, error } = await supabase.functions.invoke('analyze-meal', {
-        body: {
-          type: 'analysis',
-          image: previewImageBase64,
-          user_description: descricaoPrato,
-          data: { context: userClarificationResponse }
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      const response = await fetch(
+        "https://wnflerpqhquxcxtnycha.supabase.co/functions/v1/analyze-meal",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            type: "analysis",
+            image: previewImageBase64,
+            user_description: descricaoPrato,
+            data: { context: userClarificationResponse }
+          }),
+          signal: AbortSignal.timeout(55000),
         }
-      });
-      if (error) throw error;
-      return data;
+      );
+      if (!response.ok) throw new Error("Edge Function returned a non-2xx status code");
+      return await response.json();
     };
 
     const runAnalysis = async () => {

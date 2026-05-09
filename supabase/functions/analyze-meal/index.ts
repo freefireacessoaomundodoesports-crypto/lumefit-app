@@ -138,7 +138,6 @@ Deno.serve(async (req: Request) => {
       "gemini-2.5-flash",
       "gemini-flash-latest",
       "gemini-2.5-flash-lite",
-      "gemini-2.5-pro",
     ];
 
     let geminiData: any = null;
@@ -148,7 +147,7 @@ Deno.serve(async (req: Request) => {
       try {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const timeoutId = setTimeout(() => controller.abort(), 25000);
         
         const geminiResponse = await fetch(geminiUrl, {
           method: "POST",
