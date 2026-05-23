@@ -1903,7 +1903,18 @@ function LumeFitApp() {
           setPendingAnalyses(newQueue);
           localStorage.setItem("lume_offline_queue", JSON.stringify(newQueue));
         } else {
-          setPreviewImageBase64(imgSrc);
+          try {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              if (typeof reader.result === 'string') {
+                setPreviewImageBase64(reader.result);
+              }
+            };
+            reader.readAsDataURL(file);
+          } catch {
+            setToastMessage("Não foi possível processar a imagem. Tenta outra foto.");
+            setShowToast(true);
+          }
         }
       }
     };
@@ -1925,6 +1936,7 @@ function LumeFitApp() {
 
     void processImage(fileUrl, false);
 
+    setView("refeicoes");
     setIsViewingSavedAnalysis(false);
     setMealStage("preview");
     setNutritionOpen(false);
@@ -3371,16 +3383,29 @@ function LumeFitApp() {
                                   {isOpen && (
                                     <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
                                       {mealEntries.slice(0, 3).map((entry) => (
-                                        <li key={entry.id} className="flex items-center gap-2">
+                                        <li key={entry.id} className="flex items-center gap-2 group relative">
                                           {entry.photo ? (
                                             <img
                                               src={entry.photo}
                                               alt={entry.foodName}
-                                              className="h-6 w-6 rounded-md object-cover"
+                                              className="h-6 w-6 rounded-md object-cover shrink-0"
                                               loading="lazy"
                                             />
                                           ) : null}
-                                          <span className="truncate">{entry.foodName}</span>
+                                          <span className="truncate flex-1">{entry.foodName}</span>
+                                          <button
+                                            type="button"
+                                            onClick={async () => {
+                                              setEntries((prev) => prev.filter((e) => e.id !== entry.id));
+                                              if (session) {
+                                                await supabase.from('meals').delete().eq('id', entry.id);
+                                              }
+                                            }}
+                                            className="shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity"
+                                            aria-label="Remover refeição"
+                                          >
+                                            ✕
+                                          </button>
                                         </li>
                                       ))}
                                     </ul>
