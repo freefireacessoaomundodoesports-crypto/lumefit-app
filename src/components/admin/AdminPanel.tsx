@@ -151,7 +151,7 @@ export function AdminPanel({ onClose, setToastMessage, setShowToast, setManagedT
                 <div className="glass-card p-4 rounded-2xl flex flex-col items-center justify-center text-center">
                   <span className="text-2xl mb-1">💰</span>
                   <p className="text-xs text-muted-foreground uppercase font-bold tracking-tight">Receita</p>
-                  <h3 className="text-2xl font-bold text-brand-accent-2">MT {adminPayments.filter(p => p.status === 'confirmado').reduce((sum, p) => sum + p.amount, 0)}</h3>
+                  <h3 className="text-2xl font-bold text-brand-accent-2">MT {adminUsers.filter(u => u.status === 'ativo').length * 250}</h3>
                 </div>
                 <div className="glass-card p-4 rounded-2xl flex flex-col items-center justify-center text-center border-l-4 border-l-orange-400">
                   <span className="text-2xl mb-1">⏳</span>
@@ -322,7 +322,7 @@ export function AdminPanel({ onClose, setToastMessage, setShowToast, setManagedT
               <div className="grid grid-cols-3 gap-2">
                 <div className="glass-card p-3 rounded-xl text-center">
                   <p className="text-[9px] text-muted-foreground uppercase font-bold">Receita Total</p>
-                  <p className="text-sm font-bold text-brand-accent-2">MT {adminPayments.filter(p => p.status === 'confirmado').reduce((sum, p) => sum + p.amount, 0)}</p>
+                  <p className="text-sm font-bold text-brand-accent-2">MT {adminUsers.filter(u => u.status === 'ativo').length * 250}</p>
                 </div>
                 <div className="glass-card p-3 rounded-xl text-center">
                   <p className="text-[9px] text-muted-foreground uppercase font-bold">Faturado</p>

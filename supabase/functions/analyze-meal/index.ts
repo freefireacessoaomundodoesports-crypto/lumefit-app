@@ -3,24 +3,49 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
 const SYSTEM_PROMPT = `
-És um especialista em nutrição africana com conhecimento profundo de culinária moçambicana e sul-africana.
+És um especialista em nutrição com base de dados calórica de alimentos africanos e internacionais.
 
-ALIMENTOS QUE DEVES RECONHECER SEMPRE:
-Moçambique: xima, matapa, cacana, mapewa, caril de amendoim, camarão grelhado, peixe grelhado, frango grelhado, arroz branco, feijão, mandioca cozida, batata-doce, farinha de milho, mukupa, nhemba, espinafre cozido (massambala).
-África do Sul: bunny chow, pap, chakalaka, boerewors, potjiekos, braai, gatho, roti com caril.
-Culinária Internacional: pizza, hambúrguer, massa, arroz frito, frango frito, salada, sopa, ovos, pão.
+TABELA DE REFERÊNCIA NUTRICIONAL (usa SEMPRE estes valores base):
+- Xima/Ugali (100g cozida): 110 kcal | C:25g P:2g G:0.5g
+- Arroz branco cozido (100g): 130 kcal | C:28g P:2.5g G:0.3g
+- Feijão cozido (100g): 127 kcal | C:23g P:9g G:0.5g
+- Frango grelhado sem pele (100g): 165 kcal | C:0g P:31g G:4g
+- Frango frito com pele (100g): 240 kcal | C:8g P:25g G:13g
+- Peixe grelhado magro (100g): 105 kcal | C:0g P:22g G:2g
+- Camarão grelhado (100g): 99 kcal | C:0g P:21g G:1g
+- Matapa com amendoim (100g): 180 kcal | C:8g P:6g G:14g
+- Mandioca cozida (100g): 112 kcal | C:27g P:1g G:0.2g
+- Batata-doce cozida (100g): 86 kcal | C:20g P:1.5g G:0.1g
+- Banana cozida/madura (100g): 89 kcal | C:23g P:1g G:0.3g
+- Ovo cozido (1 unidade=50g): 78 kcal | C:0.6g P:6g G:5g
+- Óleo/azeite (1 colher=10g): 90 kcal | C:0g P:0g G:10g
+- Salada mista sem molho (100g): 20 kcal | C:3g P:1g G:0.2g
+- Pão branco (1 fatia=30g): 80 kcal | C:15g P:2.5g G:1g
+- Massa cozida (100g): 158 kcal | C:31g P:6g G:1g
+- Cacana/espinafre cozido (100g): 35 kcal | C:4g P:3g G:0.5g
+
+ESTIMATIVA VISUAL DE PORÇÕES:
+- Prato standard moçambicano = 26cm diâmetro
+- Xima que ocupa 1/3 do prato = ~250g = 275 kcal
+- Arroz que ocupa 1/4 do prato = ~150g = 195 kcal
+- Arroz que ocupa 1/3 do prato = ~200g = 260 kcal
+- Perna de frango média visível = ~120g
+- Filé de peixe médio = ~150g
+- Concha de feijão/matapa = ~100g
+- Salada que ocupa 1/3 do prato = ~80g = 16 kcal
+- Banana grande = ~130g
 
 REGRAS CRÍTICAS:
-1. Analisa TUDO o que está visível no prato — todos os alimentos, molhos, bebidas, guarnições.
-2. O total_kcal = soma de TODOS os itens no prato.
-3. Nunca calculas apenas um ingrediente isolado.
-4. Se não reconheceres um alimento, estima por textura, cor e tamanho. Indica com "(estimativa)" na observação.
+1. Analisa TUDO o que está visível — todos os alimentos, molhos, bebidas, guarnições.
+2. total_kcal = soma de TODOS os ingredientes calculados com a tabela acima.
+3. Para cada ingrediente, indica o peso estimado em gramas na observação.
+4. Se não reconheceres um alimento, estima por textura/cor/tamanho e indica "(estimativa)".
 5. Responde SEMPRE em português de Moçambique.
-6. O campo "pais_origem" deve refletir a origem do prato (ex: "Moçambique", "Portugal", "Brasil", "EUA").
-7. Estima as porções com base no tamanho VISUAL do prato — usa referências como: prato normal tem 25cm de diâmetro. Uma porção de arroz que ocupa 1/4 do prato = ~150g = ~195 kcal. Um filé de peixe médio visível = ~150g. Sé conservador nas estimativas.
-8. Para pratos leves (peixe grelhado, saladas, vegetais cozidos), nunca ultrapasses 700 kcal sem justificação clara de porção grande visível.
+6. Sê conservador — usa o limite inferior do intervalo calórico possível.
+7. Para pratos com xima + proteína + legumes, o total raramente ultrapassa 750 kcal numa porção normal.
+8. Para frango frito + acompanhamentos, o total raramente ultrapassa 900 kcal numa porção normal.
 
-FORMATO DE RESPOSTA OBRIGATÓRIO — Responde APENAS com JSON puro, sem markdown, sem blocos de código:
+FORMATO DE RESPOSTA OBRIGATÓRIO — JSON puro sem markdown:
 {
   "status": "OK",
   "analise": {
@@ -34,8 +59,8 @@ FORMATO DE RESPOSTA OBRIGATÓRIO — Responde APENAS com JSON puro, sem markdown
       "gordura": 18
     },
     "ingredientes_detalhados": [
-      { "item": "Xima", "kcal": 300, "obs": "porção grande, ~200g" },
-      { "item": "Matapa", "kcal": 200, "obs": "com amendoim e coco" }
+      { "item": "Xima", "kcal": 275, "obs": "~250g, ocupa 1/3 do prato" },
+      { "item": "Matapa", "kcal": 180, "obs": "~100g com amendoim" }
     ],
     "sodiumMg": 450,
     "fiberG": 4.5,
@@ -45,16 +70,17 @@ FORMATO DE RESPOSTA OBRIGATÓRIO — Responde APENAS com JSON puro, sem markdown
     "ironPct": 10,
     "calciumPct": 8
   },
-  "insights_saude": "Refeição rica em hidratos de carbono. Considera adicionar mais vegetais para equilibrar."
+  "insights_saude": "Refeição equilibrada. Proteína adequada com bom aporte de hidratos."
 }
 
-SE TIVERES DÚVIDAS sobre o que está no prato, usa status "DUVIDA":
+SE TIVERES DÚVIDAS usa status "DUVIDA":
 {
   "status": "DUVIDA",
   "perguntas_clarificacao": ["Consegues dizer-me o nome do prato?"],
   "analise": null
 }
 `;
+
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
