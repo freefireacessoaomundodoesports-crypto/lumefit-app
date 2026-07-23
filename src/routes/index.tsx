@@ -65,10 +65,11 @@ export const Route = createFileRoute("/")({
 });
 
 import { AdminPanel, type AdminUser } from "@/components/admin/AdminPanel";
+import { PhoneInput } from "@/components/PhoneInput";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 
-type ViewKey = "home" | "refeicoes" | "progresso" | "perfil" | "setup" | "auth" | "waiting_approval" | "blocked" | "expired" | "pending_plan";
+type ViewKey = "home" | "refeicoes" | "progresso" | "perfil" | "setup" | "auth" | "waiting_approval" | "blocked" | "expired" | "pending_plan" | "update_phone";
 type MealFlowStage = "camera" | "preview" | "analyzing" | "result" | "clarification";
 type SetupActivityLevel = "sedentario" | "moderado" | "intenso";
 type AppLanguage = "pt" | "en";
@@ -92,6 +93,7 @@ type Profile = {
   };
   role?: 'admin' | 'user';
   status?: 'ativo' | 'pendente' | 'bloqueado' | 'setup';
+  phone?: string;
 };
 
 type PersistedState = {
@@ -834,8 +836,54 @@ function LumeFitApp() {
   const [authView, setAuthView] = useState<"login" | "register">("login");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
+  const [authConfirmPassword, setAuthConfirmPassword] = useState("");
+  const [authCountryCode, setAuthCountryCode] = useState("+258");
+  const [authPhoneNumber, setAuthPhoneNumber] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+
+  const [updatePhoneLoading, setUpdatePhoneLoading] = useState(false);
+  const [updatePhoneCountryCode, setUpdatePhoneCountryCode] = useState("+258");
+  const [updatePhoneNumber, setUpdatePhoneNumber] = useState("");
+  const [updatePhoneError, setUpdatePhoneError] = useState<string | null>(null);
+
+  const handleUpdatePhone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!updatePhoneNumber.trim()) {
+      setUpdatePhoneError("Por favor, introduza o seu número do WhatsApp.");
+      return;
+    }
+    setUpdatePhoneLoading(true);
+    setUpdatePhoneError(null);
+
+    const fullPhone = `${updatePhoneCountryCode} ${updatePhoneNumber.trim()}`;
+
+    try {
+      if (session?.user?.id) {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ phone: fullPhone })
+          .eq('id', session.user.id);
+
+        if (error) throw error;
+
+        setProfile((prev) => ({ ...prev, phone: fullPhone }));
+        setToastMessage("Número de WhatsApp registado com sucesso! 🎉");
+        setShowToast(true);
+        setManagedTimeout(() => setShowToast(false), 3000);
+
+        // Prosseguir para home ou estado pendente/setup
+        if (profile.status === 'setup') setView("setup");
+        else if (profile.status === 'pendente') setView("waiting_approval");
+        else if (profile.status === 'bloqueado') setView("blocked");
+        else setView("home");
+      }
+    } catch (err: any) {
+      setUpdatePhoneError(err.message || "Erro ao guardar o número. Tenta novamente.");
+    } finally {
+      setUpdatePhoneLoading(false);
+    }
+  };
 
   const [showSplash, setShowSplash] = useState(true);
   const [splashAnimFinished, setSplashAnimFinished] = useState(false);
@@ -883,6 +931,15 @@ function LumeFitApp() {
         });
         if (error) throw error;
       } else {
+        if (authPassword !== authConfirmPassword) {
+          throw new Error("As palavras-passes não coincidem. Verifica e tenta novamente.");
+        }
+        if (!authPhoneNumber.trim()) {
+          throw new Error("Por favor, introduza o seu número do WhatsApp.");
+        }
+
+        const fullPhone = `${authCountryCode} ${authPhoneNumber.trim()}`;
+
         const { error, data } = await supabase.auth.signUp({
           email: authEmail,
           password: authPassword,
@@ -894,6 +951,7 @@ function LumeFitApp() {
             id: data.user.id,
             email: authEmail,
             name: authEmail.split('@')[0],
+            phone: fullPhone,
             role: 'user',
             status: 'setup'
           });
@@ -903,6 +961,7 @@ function LumeFitApp() {
       if (authView === "login" && error.message.includes("Invalid login credentials")) {
         setAuthError("Este email não tem conta, crie conta");
       } else {
+        setAuthError(error.message);
         setToastMessage(error.message);
         setShowToast(true);
         setManagedTimeout(() => setShowToast(false), 3000);
@@ -1182,6 +1241,7 @@ function LumeFitApp() {
           macroGoals: calcMacroGoals(profileData.calorie_goal || 1400),
           role: profileData.role || 'user',
           status: profileData.status || 'setup',
+          phone: profileData.phone || "",
         };
         userRole = profileData.role || 'user';
         userStatus = profileData.status || 'setup';
@@ -1253,6 +1313,8 @@ function LumeFitApp() {
       // 4. Lógica de Acesso
       if (userRole === 'admin') {
         setView("home");
+      } else if (!profileData?.phone || profileData.phone.trim() === "") {
+        setView("update_phone");
       } else if (hasExpired) {
         setView("expired");
       } else if (userStatus === 'bloqueado') {
@@ -2757,6 +2819,31 @@ function LumeFitApp() {
                     required
                   />
                 </div>
+
+                {authView === "register" && (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Confirmar Palavra-passe</label>
+                      <input
+                        type="password"
+                        value={authConfirmPassword}
+                        onChange={(e) => setAuthConfirmPassword(e.target.value)}
+                        className="w-full h-14 rounded-2xl bg-muted/30 border-none px-5 focus:ring-2 focus:ring-brand-accent-2 transition-all outline-none font-medium"
+                        placeholder="Confirma a tua palavra-passe"
+                        required
+                      />
+                    </div>
+
+                    <PhoneInput
+                      countryCode={authCountryCode}
+                      phoneNumber={authPhoneNumber}
+                      onCountryCodeChange={setAuthCountryCode}
+                      onPhoneNumberChange={setAuthPhoneNumber}
+                      required={true}
+                    />
+                  </>
+                )}
+
                 <Button
                   type="submit"
                   disabled={authLoading}
@@ -4238,6 +4325,53 @@ function LumeFitApp() {
                   setManagedTimeout={setManagedTimeout}
                 />
               )}
+              {view === "update_phone" && profile.role !== 'admin' && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-background/95 backdrop-blur-xl p-6 overflow-y-auto">
+                  <div className="w-full max-w-sm glass-card rounded-[32px] p-7 text-center space-y-6 shadow-2xl border border-white/20 animate-in zoom-in-95 duration-300">
+                    <div className="mx-auto w-20 h-20 rounded-3xl bg-brand-accent-2/15 flex items-center justify-center text-4xl shadow-inner border border-brand-accent-2/20">
+                      📲
+                    </div>
+
+                    <div className="space-y-2">
+                      <h2 className="text-2xl font-bold tracking-tight text-foreground">
+                        Atualização Importante
+                      </h2>
+                      <p className="text-xs text-muted-foreground leading-relaxed px-1">
+                        Para garantir que continuas a receber suporte, avisos sobre novidades na tua conta e atualizações importantes do <strong className="text-foreground">LUMEfit</strong>, precisamos de registar o teu número de WhatsApp.
+                      </p>
+                    </div>
+
+                    <form onSubmit={handleUpdatePhone} className="space-y-5 text-left">
+                      {updatePhoneError && (
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-center">
+                          <p className="text-xs font-bold text-red-500">{updatePhoneError}</p>
+                        </div>
+                      )}
+
+                      <PhoneInput
+                        countryCode={updatePhoneCountryCode}
+                        phoneNumber={updatePhoneNumber}
+                        onCountryCodeChange={setUpdatePhoneCountryCode}
+                        onPhoneNumberChange={setUpdatePhoneNumber}
+                        required={true}
+                      />
+
+                      <Button
+                        type="submit"
+                        disabled={updatePhoneLoading}
+                        className="w-full h-14 rounded-2xl bg-brand-accent-2 hover:bg-brand-accent-2/90 text-white font-bold text-base shadow-lg shadow-brand-accent-2/20 transition-all active:scale-[0.98]"
+                      >
+                        {updatePhoneLoading ? (
+                          <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
+                        ) : (
+                          "Registar WhatsApp e Continuar 🚀"
+                        )}
+                      </Button>
+                    </form>
+                  </div>
+                </div>
+              )}
+
               {view === "waiting_approval" && profile.role !== 'admin' && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-6 text-center">
                   <div className="max-w-xs space-y-6 animate-in fade-in zoom-in duration-500">
