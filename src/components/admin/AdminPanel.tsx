@@ -249,7 +249,12 @@ export function AdminPanel({ onClose, setToastMessage, setShowToast, setManagedT
                 <div className="glass-card p-4 rounded-2xl flex flex-col items-center justify-center text-center">
                   <span className="text-2xl mb-1">👥</span>
                   <p className="text-xs text-muted-foreground uppercase font-bold tracking-tight">Activos</p>
-                  <h3 className="text-2xl font-bold text-brand-accent-2">{adminUsers.filter(u => u.status === "ativo" && u.role === "user").length}</h3>
+                  <h3 className="text-2xl font-bold text-brand-accent-2">
+                    {adminUsers.filter(u => u.status === "ativo" && u.role === "user" && (!u.expiryDate || new Date(u.expiryDate).getTime() >= Date.now())).length}
+                  </h3>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {adminUsers.filter(u => u.role === "user" && u.expiryDate && new Date(u.expiryDate).getTime() < Date.now()).length} expirados
+                  </p>
                 </div>
                 <div className="glass-card p-4 rounded-2xl flex flex-col items-center justify-center text-center">
                   <span className="text-2xl mb-1">💰</span>
@@ -374,37 +379,75 @@ export function AdminPanel({ onClose, setToastMessage, setShowToast, setManagedT
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
               <div className="relative">
                 <Input 
-                  placeholder="Pesquisar utilizador..." 
-                  className="bg-glass border-glass-border rounded-xl pl-10"
+                  placeholder="Pesquisar por nome, email ou telefone..." 
+                  className="bg-glass border-glass-border rounded-xl pl-10 pr-10"
                   value={searchUserQuery}
                   onChange={(e) => setSearchUserQuery(e.target.value)}
                 />
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 text-lg">🔍</span>
+                {searchUserQuery && (
+                  <button 
+                    onClick={() => setSearchUserQuery("")} 
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground font-bold p-1"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
 
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                {["Todos", "Activos", "Pendentes", "Bloqueados", "A Expirar", "Expiradas"].map(f => {
-                  const active = userFilter === f;
-                  return (
-                    <button 
-                      key={f} 
-                      onClick={() => setUserFilter(f)}
-                      className={`shrink-0 px-4 py-1.5 rounded-full border text-xs font-medium whitespace-nowrap transition-all ${
-                        active 
-                          ? "bg-brand-accent-2 text-white border-brand-accent-2 shadow-lg shadow-brand-accent-2/20" 
-                          : "bg-glass border-glass-border text-muted-foreground hover:bg-glass/80"
-                      }`}
-                    >
-                      {f}
-                    </button>
-                  );
-                })}
-              </div>
+              {(() => {
+                const isExpired = (u: typeof adminUsers[0]) => {
+                  if (!u.expiryDate) return false;
+                  return new Date(u.expiryDate).getTime() < Date.now();
+                };
+
+                const filterTabs: { key: string; label: string; count: number }[] = [
+                  { key: "Todos", label: "Todos", count: adminUsers.length },
+                  { key: "Activos", label: "Activos", count: adminUsers.filter(u => u.status === "ativo" && !isExpired(u)).length },
+                  { key: "Expiradas", label: "Expiradas", count: adminUsers.filter(u => isExpired(u)).length },
+                  { key: "Pendentes", label: "Pendentes", count: adminUsers.filter(u => u.status === "pendente" || u.status === "setup").length },
+                  { key: "A Expirar", label: "A Expirar", count: adminUsers.filter(u => {
+                    if (!u.expiryDate || isExpired(u)) return false;
+                    const diff = new Date(u.expiryDate).getTime() - Date.now();
+                    const days = diff / (1000 * 60 * 60 * 24);
+                    return days >= 0 && days <= 7;
+                  }).length },
+                  { key: "Bloqueados", label: "Bloqueados", count: adminUsers.filter(u => u.status === "bloqueado").length },
+                ];
+
+                return (
+                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    {filterTabs.map(tab => {
+                      const active = userFilter === tab.key;
+                      return (
+                        <button 
+                          key={tab.key} 
+                          onClick={() => setUserFilter(tab.key)}
+                          className={`shrink-0 px-3.5 py-1.5 rounded-full border text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                            active 
+                              ? "bg-brand-accent-2 text-white border-brand-accent-2 shadow-lg shadow-brand-accent-2/20" 
+                              : "bg-glass border-glass-border text-muted-foreground hover:bg-glass/80"
+                          }`}
+                        >
+                          <span>{tab.label}</span>
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                            active ? "bg-white/25 text-white" : "bg-muted text-muted-foreground"
+                          }`}>
+                            {tab.count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
 
               <div className="space-y-3">
                 {(() => {
                   const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-                  const query = normalize(searchUserQuery);
+                  const rawQuery = searchUserQuery.trim();
+                  const query = normalize(rawQuery);
+                  const cleanPhoneQuery = rawQuery.replace(/\D/g, "");
 
                   const isExpired = (u: typeof adminUsers[0]) => {
                     if (!u.expiryDate) return false;
@@ -412,10 +455,23 @@ export function AdminPanel({ onClose, setToastMessage, setShowToast, setManagedT
                   };
 
                   const filtered = adminUsers.filter(u => {
-                    const matchesQuery = normalize(u.name).includes(query) || normalize(u.email).includes(query);
+                    const uName = normalize(u.name || "");
+                    const uEmail = normalize(u.email || "");
+                    const uPhoneClean = (u.phone || "").replace(/\D/g, "");
+                    const uPhoneNorm = normalize(u.phone || "");
+
+                    const matchesQuery = !query || 
+                      uName.includes(query) || 
+                      uEmail.includes(query) ||
+                      (cleanPhoneQuery.length >= 2 && uPhoneClean.includes(cleanPhoneQuery)) ||
+                      uPhoneNorm.includes(query);
+
                     if (!matchesQuery) return false;
 
-                    if (userFilter === "Todos") return !isExpired(u); // Expiradas ficam fora do "Todos"
+                    // Se estiver pesquisando, mostra imediatamente o resultado sem prender na aba
+                    if (query.length > 0) return true;
+
+                    if (userFilter === "Todos") return true; // Mostra TODOS os utilizadores!
                     if (userFilter === "Activos") return u.status?.toLowerCase() === "ativo" && !isExpired(u);
                     if (userFilter === "Pendentes") return u.status?.toLowerCase() === "pendente" || u.status?.toLowerCase() === "setup";
                     if (userFilter === "Bloqueados") return u.status?.toLowerCase() === "bloqueado";
@@ -436,7 +492,7 @@ export function AdminPanel({ onClose, setToastMessage, setShowToast, setManagedT
                           {userFilter === "Expiradas" ? "Nenhuma conta expirada 🎉" : "Nenhum utilizador encontrado 🔍"}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {userFilter === "Expiradas" ? "Todos os utilizadores estão com o acesso em dia." : "Tenta outro nome ou email"}
+                          {userFilter === "Expiradas" ? "Todos os utilizadores estão com o acesso em dia." : "Tenta pesquisar por outro nome, email ou número"}
                         </p>
                       </div>
                     );
@@ -444,7 +500,7 @@ export function AdminPanel({ onClose, setToastMessage, setShowToast, setManagedT
 
                   return (
                     <>
-                      {userFilter === "Expiradas" && (
+                      {userFilter === "Expiradas" && !searchUserQuery && (
                         <div className="flex items-center gap-2 px-1 py-2">
                           <span className="text-base">🔴</span>
                           <p className="text-sm font-bold text-red-500">{filtered.length} conta{filtered.length !== 1 ? "s" : ""} expirada{filtered.length !== 1 ? "s" : ""}</p>
@@ -465,16 +521,28 @@ export function AdminPanel({ onClose, setToastMessage, setShowToast, setManagedT
                               expired ? "border border-red-300/50 bg-red-50/30" : ""
                             }`}
                           >
-                            <div className={`h-12 w-12 rounded-full flex items-center justify-center font-bold border ${
+                            <div className={`h-12 w-12 rounded-full flex items-center justify-center font-bold border shrink-0 ${
                               expired
                                 ? "bg-red-100 text-red-600 border-red-300"
                                 : "bg-brand-accent-2/20 text-brand-accent-2 border-brand-accent-2/30"
                             }`}>
-                              {user.name.split(" ").map((n: string) => n[0]).join("")}
+                              {(user.name || "U").split(" ").map((n: string) => n[0]).join("")}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h4 className="text-sm font-bold truncate">{user.name}</h4>
-                              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                              <div className="flex items-center justify-between gap-2">
+                                <h4 className="text-sm font-bold truncate">{user.name}</h4>
+                                {user.role === "admin" && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase bg-purple-100 text-purple-700 shrink-0">
+                                    Admin
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground truncate">{user.email || "Sem email"}</p>
+                              {user.phone && (
+                                <p className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mt-0.5 truncate">
+                                  <span>📱</span> {user.phone}
+                                </p>
+                              )}
                               <div className="flex items-center gap-2 mt-2 flex-wrap">
                                 {expired ? (
                                   <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-red-100 text-red-700 border border-red-200">
@@ -551,20 +619,23 @@ export function AdminPanel({ onClose, setToastMessage, setShowToast, setManagedT
 
                 <div className="space-y-3">
                   <h4 className="text-sm font-bold px-1">Pedidos de Acesso Pendentes</h4>
-                  {adminUsers.filter(u => u.status === "pendente").length === 0 ? (
+                  {adminUsers.filter(u => u.status === "pendente" || u.status === "setup").length === 0 ? (
                     <div className="glass-card p-6 rounded-2xl text-center">
                       <p className="text-xs text-muted-foreground">Nenhum pedido pendente 🎉</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {adminUsers.filter(u => u.status === "pendente").map(user => (
+                      {adminUsers.filter(u => u.status === "pendente" || u.status === "setup").map(user => (
                         <div key={user.id} className="glass-card p-4 rounded-2xl">
                           <div className="flex items-center justify-between mb-3">
                             <div>
                               <p className="text-sm font-bold">{user.name}</p>
-                              <p className="text-xs text-muted-foreground">{user.email}</p>
+                              <p className="text-xs text-muted-foreground">{user.email || "Sem email"}</p>
+                              {user.phone && <p className="text-[11px] text-muted-foreground font-medium mt-0.5">📱 {user.phone}</p>}
                             </div>
-                            <span className="text-[10px] text-muted-foreground">Pendente</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-yellow-100 text-yellow-700">
+                              {user.status === "setup" ? "No Onboarding" : "Pendente"}
+                            </span>
                           </div>
                           <div className="flex gap-2">
                             <Button 
@@ -883,13 +954,26 @@ export function AdminPanel({ onClose, setToastMessage, setShowToast, setManagedT
                         </div>
                       )}
 
+                      {/* Botão de Destaque: Renovar e Registar Pagamento */}
+                      <Button 
+                        className="w-full h-12 rounded-xl bg-brand-accent-2 hover:bg-brand-accent-2/90 text-white font-bold text-sm shadow-lg shadow-brand-accent-2/25 flex items-center justify-center gap-2"
+                        onClick={() => {
+                          setPaymentModalUser(showUserDetail);
+                          setPaymentModalMonths(1);
+                          setPaymentModalAmount("350");
+                          setShowUserDetail(null);
+                        }}
+                      >
+                        💳 {isExpiredUser ? "Renovar Acesso (350 MT)" : "Adicionar Meses / Pagamento"}
+                      </Button>
+
                       {/* Painel de Gestão de Dias */}
                       <div className="p-4 rounded-2xl bg-glass-muted border border-glass-border space-y-3">
-                        <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">⏱ Ajuste de Dias de Acesso</p>
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">⏱ Ajuste Rápido de Dias (Sem Cobrança)</p>
 
                         {/* Presets rápidos de adicionar */}
                         <div>
-                          <p className="text-[10px] text-green-700 font-bold uppercase mb-1.5">➕ Adicionar Dias</p>
+                          <p className="text-[10px] text-green-700 font-bold uppercase mb-1.5">➕ Adicionar Dias Cortesia</p>
                           <div className="grid grid-cols-3 gap-1.5">
                             {[7, 15, 30].map(d => (
                               <button
@@ -947,8 +1031,16 @@ export function AdminPanel({ onClose, setToastMessage, setShowToast, setManagedT
 
                       {/* Botão de ativar para contas não ativas e não expiradas */}
                       {!isExpiredUser && showUserDetail.status !== "ativo" && (
-                        <Button className="w-full h-12 rounded-xl bg-brand-accent-2" onClick={() => applyDaysAdjustment(30)}>
-                          Activar Utilizador (250 MT)
+                        <Button 
+                          className="w-full h-12 rounded-xl bg-brand-accent-2 text-white font-bold text-sm shadow-lg shadow-brand-accent-2/20" 
+                          onClick={() => {
+                            setPaymentModalUser(showUserDetail);
+                            setPaymentModalMonths(1);
+                            setPaymentModalAmount("350");
+                            setShowUserDetail(null);
+                          }}
+                        >
+                          ✅ Activar e Registar Pagamento (350 MT)
                         </Button>
                       )}
 
