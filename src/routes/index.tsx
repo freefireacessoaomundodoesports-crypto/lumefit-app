@@ -814,6 +814,8 @@ function LumeFitApp() {
   const [showTopMenu, setShowTopMenu] = useState(false);
   const [showSettingsSheet, setShowSettingsSheet] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
+  const [showCalorieSheet, setShowCalorieSheet] = useState(false);
+  const [editingCalorieGoal, setEditingCalorieGoal] = useState<number>(1400);
   const [shareMode, setShareMode] = useState<"general" | "weight">("general");
   const [isGeneratingShareImage, setIsGeneratingShareImage] = useState(false);
   const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
@@ -2738,6 +2740,36 @@ function LumeFitApp() {
     setupActivity,
   ]);
 
+  const handleSaveCalorieGoal = (newGoal: number) => {
+    const sanitized = Math.max(800, Math.min(6000, Math.round(newGoal)));
+    const updatedMacros = calcMacroGoals(sanitized);
+
+    setProfile((prev) => ({
+      ...prev,
+      calorieGoal: sanitized,
+      macroGoals: updatedMacros,
+    }));
+
+    if (session?.user?.id) {
+      void supabase
+        .from('profiles')
+        .update({
+          calorie_goal: sanitized,
+          macro_goals: updatedMacros,
+        })
+        .eq('id', session.user.id);
+    }
+
+    setShowCalorieSheet(false);
+    setToastMessage(
+      appLanguage === "en"
+        ? `Calorie goal updated to ${sanitized} kcal! 🎯`
+        : `Meta de calorias atualizada para ${sanitized} kcal! 🎯`
+    );
+    setShowToast(true);
+    setManagedTimeout(() => setShowToast(false), 3000);
+  };
+
   const currentMealTitle = localizedMeals[selectedMeal];
 
   if (session === undefined) {
@@ -3336,8 +3368,8 @@ function LumeFitApp() {
                         <>
                           <article className="glass-card mt-4 rounded-xl p-5 text-center">
                             <h3 className="text-sm text-muted-foreground">{t.todayCalories}</h3>
-                            <div className="mx-auto mt-4 h-40 w-40">
-                              <svg viewBox="0 0 120 120" className="h-full w-full">
+                            <div className="relative mx-auto mt-4 h-40 w-40 flex items-center justify-center">
+                              <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full">
                                 <defs>
                                   <linearGradient id="calorieRingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                                     <stop offset="0%" stopColor={calorieColors.stop1} />
@@ -3366,12 +3398,20 @@ function LumeFitApp() {
                                   style={{ filter: `drop-shadow(0 0 6px ${ringGlow})` }}
                                 />
                               </svg>
-                              <div className="-mt-24 text-center">
-                                <p className="text-2xl font-bold">{consumedCalories}</p>
-                                <p className="text-xs text-muted-foreground">/ {profile.calorieGoal} kcal</p>
-                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingCalorieGoal(profile.calorieGoal);
+                                  setShowCalorieSheet(true);
+                                }}
+                                className="group relative z-10 flex flex-col items-center justify-center text-center cursor-pointer transition-transform active:scale-95 focus:outline-none select-none"
+                                title={appLanguage === "en" ? "Tap to edit calorie goal" : "Toque para alterar a meta de calorias"}
+                              >
+                                <p className="text-2xl font-bold leading-tight">{consumedCalories}</p>
+                                <p className="text-xs text-muted-foreground transition-colors group-hover:text-primary">/ {profile.calorieGoal} kcal</p>
+                              </button>
                             </div>
-                            <p className="mt-3 text-sm">{t.remaining.charAt(0).toUpperCase() + t.remaining.slice(1)} {remainingCalories} {t.calories.toLowerCase()} {appLanguage === "en" ? "today" : "hoje"}</p>
+                            <p className="mt-6 text-sm font-medium">{t.remaining.charAt(0).toUpperCase() + t.remaining.slice(1)} {remainingCalories} {t.calories.toLowerCase()} {appLanguage === "en" ? "today" : "hoje"}</p>
                           </article>
 
                           <div className="mt-4 grid grid-cols-3 gap-2">
@@ -4302,6 +4342,140 @@ function LumeFitApp() {
                   </div>
                 </div>
               ) : null}
+
+              {/* iPhone-styled Calorie Goal Editor Container */}
+              {showCalorieSheet && (
+                <div
+                  className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4 animate-in fade-in duration-200"
+                  onClick={() => setShowCalorieSheet(false)}
+                >
+                  <div
+                    className="w-full max-w-sm rounded-t-[32px] sm:rounded-[32px] bg-card/95 backdrop-blur-2xl border-t sm:border border-white/20 p-5 pb-7 sm:pb-5 shadow-2xl animate-in slide-in-from-bottom-6 duration-300"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* iOS Grab Bar */}
+                    <div className="mx-auto -mt-1 mb-3 h-1.5 w-10 rounded-full bg-muted-foreground/30" />
+
+                    {/* iOS Navigation Header */}
+                    <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowCalorieSheet(false)}
+                        className="text-sm font-medium text-muted-foreground hover:text-foreground active:opacity-60 transition-opacity"
+                      >
+                        {appLanguage === "en" ? "Cancel" : "Cancelar"}
+                      </button>
+                      <h3 className="text-base font-semibold tracking-tight">
+                        {appLanguage === "en" ? "Daily Calorie Goal" : "Meta de Calorias"}
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => handleSaveCalorieGoal(editingCalorieGoal)}
+                        className="text-sm font-bold text-brand-accent-2 hover:opacity-80 active:opacity-60 transition-opacity"
+                      >
+                        {appLanguage === "en" ? "Done" : "Guardar"}
+                      </button>
+                    </div>
+
+                    {/* iOS Stepper and Big Digits */}
+                    <div className="py-4">
+                      <div className="flex items-center justify-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setEditingCalorieGoal((prev) => Math.max(800, prev - 50))}
+                          className="h-11 w-11 rounded-full bg-secondary/80 hover:bg-secondary active:scale-90 flex items-center justify-center text-lg font-bold shadow-sm transition-all border border-border/50 select-none text-foreground"
+                          aria-label="Diminuir calorias"
+                        >
+                          <Minus className="h-5 w-5" />
+                        </button>
+
+                        <div className="flex flex-col items-center min-w-[150px]">
+                          <div className="flex items-baseline justify-center">
+                            <input
+                              type="number"
+                              min="800"
+                              max="6000"
+                              step="10"
+                              value={editingCalorieGoal || ""}
+                              onChange={(e) => setEditingCalorieGoal(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                              className="w-28 bg-transparent text-center text-4xl font-extrabold tracking-tight focus:outline-none text-foreground border-b border-dashed border-muted-foreground/30 focus:border-brand-accent-2 transition-colors"
+                            />
+                            <span className="text-sm font-bold text-muted-foreground ml-1">kcal</span>
+                          </div>
+                          <span className="text-[11px] font-medium text-muted-foreground/80 mt-1">
+                            {appLanguage === "en" ? "daily target" : "meta diária recomendada"}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setEditingCalorieGoal((prev) => Math.min(6000, prev + 50))}
+                          className="h-11 w-11 rounded-full bg-secondary/80 hover:bg-secondary active:scale-90 flex items-center justify-center text-lg font-bold shadow-sm transition-all border border-border/50 select-none text-foreground"
+                          aria-label="Aumentar calorias"
+                        >
+                          <Plus className="h-5 w-5" />
+                        </button>
+                      </div>
+
+                      {/* Quick Adjust Pills */}
+                      <div className="flex justify-center gap-2 mt-4">
+                        {[-100, -50, 50, 100].map((delta) => (
+                          <button
+                            key={delta}
+                            type="button"
+                            onClick={() => setEditingCalorieGoal((prev) => Math.max(800, Math.min(6000, prev + delta)))}
+                            className="px-3 py-1 text-xs font-semibold rounded-full bg-muted/60 hover:bg-muted active:scale-95 text-muted-foreground hover:text-foreground transition-all border border-border/40"
+                          >
+                            {delta > 0 ? `+${delta}` : delta}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Apple Health Style Macro Preview Card */}
+                      <div className="mt-4 rounded-2xl bg-secondary/35 border border-border/50 p-3 text-left">
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                          {appLanguage === "en" ? "Macro Distribution Preview" : "Distribuição de Macros Prevista"}
+                        </p>
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="rounded-xl bg-background/70 p-2 border border-border/30">
+                            <span className="block text-[10px] font-semibold text-muted-foreground">
+                              {t.proteins} (30%)
+                            </span>
+                            <span className="text-sm font-bold text-foreground">
+                              {calcMacroGoals(editingCalorieGoal).protein}g
+                            </span>
+                          </div>
+                          <div className="rounded-xl bg-background/70 p-2 border border-border/30">
+                            <span className="block text-[10px] font-semibold text-muted-foreground">
+                              {t.carbohydrates} (45%)
+                            </span>
+                            <span className="text-sm font-bold text-foreground">
+                              {calcMacroGoals(editingCalorieGoal).carbs}g
+                            </span>
+                          </div>
+                          <div className="rounded-xl bg-background/70 p-2 border border-border/30">
+                            <span className="block text-[10px] font-semibold text-muted-foreground">
+                              {t.fats} (25%)
+                            </span>
+                            <span className="text-sm font-bold text-foreground">
+                              {calcMacroGoals(editingCalorieGoal).fat}g
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* iOS Confirm Button */}
+                    <Button
+                      type="button"
+                      onClick={() => handleSaveCalorieGoal(editingCalorieGoal)}
+                      className="w-full h-12 rounded-2xl bg-brand-accent-2 hover:bg-brand-accent-2/90 text-white font-bold text-base shadow-lg shadow-brand-accent-2/20 active:scale-[0.98] transition-all"
+                    >
+                      {appLanguage === "en" ? "Update Calorie Goal 🎯" : "Atualizar Meta de Calorias 🎯"}
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {showConfetti ? (
                 <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden">
