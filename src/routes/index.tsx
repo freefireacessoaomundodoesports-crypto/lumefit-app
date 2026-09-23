@@ -213,6 +213,8 @@ const getMozambiqueDate = () => {
   return mozTime.toISOString().split("T")[0];
 };
 
+const DAILY_CREDITS = 8;
+
 const getDailyCreditsFromDB = async (userId: string): Promise<number> => {
   try {
     const today = getMozambiqueDate();
@@ -222,15 +224,27 @@ const getDailyCreditsFromDB = async (userId: string): Promise<number> => {
       .eq('user_id', userId)
       .single();
     if (error || !data) {
-      await supabase.from('user_credits').insert({ user_id: userId, credits: 5, last_reset_date: today });
-      return 5;
+      await supabase.from('user_credits').insert({ user_id: userId, credits: DAILY_CREDITS, last_reset_date: today });
+      return DAILY_CREDITS;
     }
     if (data.last_reset_date !== today) {
-      await supabase.from('user_credits').update({ credits: 5, last_reset_date: today }).eq('user_id', userId);
-      return 5;
+      await supabase.from('user_credits').update({ credits: DAILY_CREDITS, last_reset_date: today }).eq('user_id', userId);
+      return DAILY_CREDITS;
+    }
+    if (data.credits < DAILY_CREDITS) {
+      try {
+        const migrationKey = `lumefit_migrated_v8_${userId}_${today}`;
+        const migrationDone = localStorage.getItem(migrationKey);
+        if (!migrationDone) {
+          const adjustedCredits = Math.min(DAILY_CREDITS, data.credits + (DAILY_CREDITS - 5));
+          await supabase.from('user_credits').update({ credits: adjustedCredits }).eq('user_id', userId);
+          localStorage.setItem(migrationKey, "true");
+          return adjustedCredits;
+        }
+      } catch {}
     }
     return data.credits;
-  } catch { return 5; }
+  } catch { return DAILY_CREDITS; }
 };
 
 const deductCreditFromDB = async (userId: string): Promise<number> => {
@@ -802,7 +816,7 @@ function LumeFitApp() {
     }
   }, []);
 
-  const [credits, setCredits] = useState(5);
+  const [credits, setCredits] = useState(DAILY_CREDITS);
 
 
 
@@ -1181,10 +1195,10 @@ function LumeFitApp() {
     setShowToast(false);
     setToastMessage("");
     setIsViewingSavedAnalysis(false);
-    setCredits(5);
+    setCredits(DAILY_CREDITS);
     try {
       const today = getMozambiqueDate();
-      localStorage.setItem("lumefit_credits", JSON.stringify({ credits: 5, date: today }));
+      localStorage.setItem("lumefit_credits", JSON.stringify({ credits: DAILY_CREDITS, date: today }));
     } catch {}
   }, []);
 
