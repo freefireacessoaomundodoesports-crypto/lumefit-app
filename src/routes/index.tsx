@@ -939,11 +939,15 @@ function LumeFitApp() {
     e.preventDefault();
     setAuthLoading(true);
     setAuthError(null);
+
+    const cleanEmail = authEmail.trim().toLowerCase();
+    const cleanPassword = authPassword;
+
     try {
       if (authView === "login") {
         const { error } = await supabase.auth.signInWithPassword({
-          email: authEmail,
-          password: authPassword,
+          email: cleanEmail,
+          password: cleanPassword,
         });
         if (error) throw error;
       } else {
@@ -957,30 +961,62 @@ function LumeFitApp() {
         const fullPhone = `${authCountryCode} ${authPhoneNumber.trim()}`;
 
         const { error, data } = await supabase.auth.signUp({
-          email: authEmail,
-          password: authPassword,
+          email: cleanEmail,
+          password: cleanPassword,
+          options: {
+            data: {
+              phone: fullPhone,
+              name: cleanEmail.split('@')[0],
+            }
+          }
         });
         if (error) throw error;
 
         if (data.user) {
-          await supabase.from('profiles').insert({
+          // Utilizar upsert com onConflict para evitar erros de chave duplicada ou triggers automáticos
+          const { error: upsertErr } = await supabase.from('profiles').upsert({
             id: data.user.id,
-            email: authEmail,
-            name: authEmail.split('@')[0],
+            email: cleanEmail,
+            name: cleanEmail.split('@')[0],
             phone: fullPhone,
             role: 'user',
             status: 'setup'
-          });
+          }, { onConflict: 'id' });
+
+          if (upsertErr) {
+            console.error("Erro ao sincronizar perfil inicial:", upsertErr);
+          }
+
+          // Atualizar estado local imediatamente para prevenir race conditions no carregamento de dados
+          setProfile((prev) => ({
+            ...prev,
+            email: cleanEmail,
+            name: cleanEmail.split('@')[0],
+            phone: fullPhone,
+            status: 'setup'
+          }));
         }
       }
     } catch (error: any) {
-      if (authView === "login" && error.message.includes("Invalid login credentials")) {
-        setAuthError("Este email não tem conta, crie conta");
+      const msg = error.message || "";
+      if (authView === "login") {
+        if (msg.includes("Invalid login credentials")) {
+          setAuthError("Email ou palavra-passe incorretos. Por favor, verifica os teus dados.");
+        } else if (msg.toLowerCase().includes("email not confirmed")) {
+          setAuthError("Email não confirmado. Por favor, verifica a tua caixa de correio ou pasta de spam.");
+        } else if (msg.toLowerCase().includes("rate limit")) {
+          setAuthError("Muitas tentativas. Por favor, aguarda alguns minutos antes de tentar novamente.");
+        } else {
+          setAuthError(msg);
+        }
       } else {
-        setAuthError(error.message);
-        setToastMessage(error.message);
-        setShowToast(true);
-        setManagedTimeout(() => setShowToast(false), 3000);
+        if (msg.includes("User already registered") || msg.toLowerCase().includes("already registered")) {
+          setAuthError("Este email já tem conta registada. Clica em 'Entrar' acima para aceder.");
+        } else if (msg.toLowerCase().includes("password should be at least")) {
+          setAuthError("A palavra-passe deve ter pelo menos 6 caracteres.");
+        } else {
+          setAuthError(msg);
+        }
       }
     } finally {
       setAuthLoading(false);
@@ -1329,6 +1365,8 @@ function LumeFitApp() {
       // 4. Lógica de Acesso
       if (userRole === 'admin') {
         setView("home");
+      } else if (userStatus === 'setup') {
+        setView("setup");
       } else if (!profileData?.phone || profileData.phone.trim() === "") {
         setView("update_phone");
       } else if (hasExpired) {
@@ -1337,8 +1375,6 @@ function LumeFitApp() {
         setView("blocked");
       } else if (userStatus === 'pendente') {
         setView("waiting_approval");
-      } else if (userStatus === 'setup') {
-        setView("setup");
       } else if (userStatus === 'ativo' && !profileData?.calorie_goal) {
         setView("pending_plan");
       } else {
@@ -2852,6 +2888,9 @@ function LumeFitApp() {
                     className="w-full h-14 rounded-2xl bg-muted/30 border-none px-5 focus:ring-2 focus:ring-brand-accent-2 transition-all outline-none font-medium"
                     placeholder="exemplo@email.com"
                     required
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                   />
                 </div>
                 <div className="space-y-2">
@@ -4579,6 +4618,17 @@ function LumeFitApp() {
                       <p className="text-xs text-muted-foreground">Pode fechar o app, nós notificaremos assim que for libertado!</p>
                     </div>
 
+                    <div className="pt-2">
+                      <button
+                        onClick={async () => {
+                          await supabase.auth.signOut();
+                          window.location.reload();
+                        }}
+                        className="text-xs font-bold text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
+                      >
+                        Sair da Conta
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -4604,6 +4654,18 @@ function LumeFitApp() {
                     >
                       @lumefit no Instagram
                     </a>
+
+                    <div className="pt-2">
+                      <button
+                        onClick={async () => {
+                          await supabase.auth.signOut();
+                          window.location.reload();
+                        }}
+                        className="text-xs font-bold text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
+                      >
+                        Sair da Conta
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
