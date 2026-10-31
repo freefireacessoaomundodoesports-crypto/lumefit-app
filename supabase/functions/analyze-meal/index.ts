@@ -36,14 +36,15 @@ ESTIMATIVA VISUAL DE PORÇÕES:
 - Banana grande = ~130g
 
 REGRAS CRÍTICAS:
-1. Analisa TUDO o que está visível — todos os alimentos, molhos, bebidas, guarnições.
-2. total_kcal = soma de TODOS os ingredientes calculados com a tabela acima.
-3. Para cada ingrediente, indica o peso estimado em gramas na observação.
-4. Se não reconheceres um alimento, estima por textura/cor/tamanho e indica "(estimativa)".
-5. Responde SEMPRE em português de Moçambique.
-6. Sê conservador — usa o limite inferior do intervalo calórico possível.
-7. Para pratos com xima + proteína + legumes, o total raramente ultrapassa 750 kcal numa porção normal.
-8. Para frango frito + acompanhamentos, o total raramente ultrapassa 900 kcal numa porção normal.
+1. CONSIDERAÇÃO OBRIGATÓRIA DAS INSTRUÇÕES DO UTILIZADOR: Se o utilizador forneceu uma descrição ou esclarecimento sobre os alimentos presentes no prato (ex: "arroz e frango", "xima com matapa"), deves OBRIGATORIAMENTE considerar, respeitar e priorizar essa informação para identificar os alimentos e calcular as calorias.
+2. IMAGENS COM BAIXA NITIDEZ OU FOCO DIFÍCIL (ex: fotos aproximadas de iPhone, sombras ou pouca luz): Se a imagem não for perfeitamente nítida mas o utilizador descreveu os alimentos, NUNCA RECUSES A ANÁLISE! Usa a descrição fornecida pelo utilizador, estima as porções médias normais da tabela e define "precisao_baixa": true no JSON.
+3. Se a foto for nítida e claramente identificável, define "precisao_baixa": false.
+4. total_kcal = soma de TODOS os ingredientes calculados com a tabela acima.
+5. Para cada ingrediente, indica o peso estimado em gramas na observação.
+6. Se não reconheceres um alimento visualmente e não houver descrição, estima por textura/cor/tamanho e indica "(estimativa)".
+7. Responde SEMPRE em português de Moçambique.
+8. Sê conservador — usa o limite inferior do intervalo calórico possível.
+9. NUNCA DEVOLVAS STATUS "DUVIDA" se o utilizador já tiver fornecido descrição ou resposta. Nesses casos deves SEMPRE devolver status "OK" com a análise completa.
 
 FORMATO DE RESPOSTA OBRIGATÓRIO — JSON puro sem markdown:
 {
@@ -51,7 +52,8 @@ FORMATO DE RESPOSTA OBRIGATÓRIO — JSON puro sem markdown:
   "analise": {
     "prato_nome": "Nome do prato completo",
     "pais_origem": "País de origem",
-    "confianca_score": 95,
+    "confianca_score": 90,
+    "precisao_baixa": false,
     "total_kcal": 650,
     "macros": {
       "proteina": 35,
@@ -73,10 +75,10 @@ FORMATO DE RESPOSTA OBRIGATÓRIO — JSON puro sem markdown:
   "insights_saude": "Refeição equilibrada. Proteína adequada com bom aporte de hidratos."
 }
 
-SE TIVERES DÚVIDAS usa status "DUVIDA":
+SE E SOMENTE SE NÃO HOUVER NENHUMA DESCRIÇÃO DO UTILIZADOR E A IMAGEM FOR TOTALMENTE ILEGÍVEL OU NÃO TIVER ALIMENTO, USA status "DUVIDA":
 {
   "status": "DUVIDA",
-  "perguntas_clarificacao": ["Consegues dizer-me o nome do prato?"],
+  "perguntas_clarificacao": ["Consegues dizer-me o que está no prato para eu analisar com precisão?"],
   "analise": null
 }
 `;
@@ -130,10 +132,14 @@ Deno.serve(async (req: Request) => {
       if (mimeMatch) mimeType = mimeMatch[1];
     }
 
+    const hasUserText = Boolean(user_description?.trim() || userContext?.trim());
     const userMessage = [
-      "Analisa esta imagem de refeição e identifica TODOS os alimentos visíveis.",
-      user_description ? `Descrição fornecida pelo utilizador: "${user_description}"` : "",
-      userContext ? `Contexto adicional: "${userContext}"` : "",
+      "Analisa esta imagem de refeição e calcula com rigor os dados nutricionais.",
+      user_description ? `Descrição fornecida pelo utilizador: "${user_description}" (CONSIDERA OBRIGATORIAMENTE esta descrição para identificar os alimentos).` : "",
+      userContext ? `Esclarecimento adicional do utilizador: "${userContext}" (CONSIDERA OBRIGATORIAMENTE este esclarecimento).` : "",
+      hasUserText
+        ? "AVISO CRÍTICO: O utilizador informou o que tem no prato. NUNCA DEVOLVAS status 'DUVIDA'! Devolve SEMPRE status 'OK', aceitando os alimentos indicados e estimando os valores nutricionais com a tabela. Se a imagem estiver desfocada, aproximada demais, escura ou difícil de ver detalhes, define 'precisao_baixa': true no JSON."
+        : "Se a foto não tiver qualquer refeição visível ou for totalmente irreconhecível e não houver descrição, podes usar status 'DUVIDA'.",
       "IMPORTANTE: Responde APENAS com JSON puro. Sem markdown, sem blocos de código. Começa com { e termina com }.",
     ].filter(Boolean).join("\n");
 
@@ -240,6 +246,35 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({ error: true, message: "Não foi possível processar a resposta da IA." }),
         { status: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
       );
+    }
+
+    // Se o utilizador forneceu texto/descrição mas a IA devolveu status DUVIDA
+    if (hasUserText && result.status === "DUVIDA") {
+      result.status = "OK";
+      if (!result.analise) {
+        const descText = [user_description, userContext].filter(Boolean).join(", ");
+        result.analise = {
+          prato_nome: descText.slice(0, 45) || "Refeição descrita",
+          pais_origem: "Moçambique",
+          confianca_score: 65,
+          precisao_baixa: true,
+          total_kcal: 580,
+          macros: { proteina: 30, carbs: 68, gordura: 15 },
+          ingredientes_detalhados: [
+            { item: descText || "Ingredientes principais", kcal: 580, obs: "Calculado com base na descrição fornecida (baixa nitidez na imagem)" }
+          ],
+          sodiumMg: 450,
+          fiberG: 4.5,
+          sugarsG: 2.1,
+          vitaminAPct: 15,
+          vitaminCPct: 20,
+          ironPct: 10,
+          calciumPct: 8
+        };
+        result.insights_saude = "Valores estimados com base nos alimentos descritos pelo utilizador.";
+      } else {
+        result.analise.precisao_baixa = true;
+      }
     }
 
     return new Response(

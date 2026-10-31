@@ -13,6 +13,7 @@ export type MockMealResult = {
   mealName: string;
   cuisineTag: string;
   confidence: number;
+  isLowPrecision?: boolean;
   estimatedKcal: number;
   protein: number;
   carbs: number;

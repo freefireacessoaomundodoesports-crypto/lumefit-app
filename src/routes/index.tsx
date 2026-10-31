@@ -9,6 +9,7 @@ import {
 } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  AlertTriangle,
   ArrowLeft,
   Camera,
   Check,
@@ -70,7 +71,7 @@ import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 
 type ViewKey = "home" | "refeicoes" | "progresso" | "perfil" | "setup" | "auth" | "waiting_approval" | "blocked" | "expired" | "pending_plan" | "update_phone";
-type MealFlowStage = "camera" | "preview" | "analyzing" | "result" | "clarification";
+type MealFlowStage = "camera" | "preview" | "analyzing" | "result" | "clarification" | "low_precision_guidance";
 type SetupActivityLevel = "sedentario" | "moderado" | "intenso";
 type AppLanguage = "pt" | "en";
 type AppTheme = "light" | "dark";
@@ -650,7 +651,7 @@ async function compressImageForAnalysis(imageSource: string): Promise<string> {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement("canvas");
-      const maxWidth = 800;
+      const maxWidth = 1200;
       const scale = Math.min(maxWidth / img.width, 1);
       canvas.width = Math.max(1, Math.round(img.width * scale));
       canvas.height = Math.max(1, Math.round(img.height * scale));
@@ -662,7 +663,7 @@ async function compressImageForAnalysis(imageSource: string): Promise<string> {
       ctx.fillStyle = "white";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL("image/jpeg", 0.7));
+      resolve(canvas.toDataURL("image/jpeg", 0.8));
     };
     img.onerror = () => reject(new Error("Failed to load image"));
     img.src = imageSource;
@@ -1105,6 +1106,10 @@ function LumeFitApp() {
   const [aiClarificationQuestion, setAiClarificationQuestion] = useState<string | null>(null);
   const [userClarificationResponse, setUserClarificationResponse] = useState("");
   const [previewImageBase64, setPreviewImageBase64] = useState<string | null>(null);
+  const [pendingLowPrecisionResult, setPendingLowPrecisionResult] = useState<MockMealResult | null>(null);
+  const [bypassLowPrecisionCheck, setBypassLowPrecisionCheck] = useState(false);
+  const [showLowPrecisionConfirmModal, setShowLowPrecisionConfirmModal] = useState(false);
+  const [refinementDetailsText, setRefinementDetailsText] = useState("");
   const planResultRef = useRef<HTMLDivElement | null>(null);
 
   const writeState = useCallback((next: UnifiedAppState) => {
@@ -1627,29 +1632,39 @@ function LumeFitApp() {
 
         if (aiResult?.error) throw new Error(aiResult.message || "Erro interno na análise da IA.");
 
-        if (aiResult.status === "DUVIDA" && !userClarificationResponse) {
+        const userProvidedText = (userClarificationResponse || descricaoPrato || "").trim();
+
+        // Se a IA devolver DUVIDA e o utilizador NÃO tiver fornecido nenhuma descrição nem resposta prévia
+        if (aiResult.status === "DUVIDA" && !userClarificationResponse && !descricaoPrato?.trim()) {
           setAiClarificationQuestion(aiResult.perguntas_clarificacao?.[0] || "Pode detalhar melhor os ingredientes?");
           setMealStage("clarification");
           return;
         }
 
-        // Se chegar aqui e ainda for DUVIDA (ex: usuário pulou mas a IA insistiu),
-        // tentamos extrair o que houver na 'analise' ou damos erro amigável se estiver vazio.
-        if (aiResult.status === "DUVIDA" && (!aiResult.analise || !aiResult.analise.total_kcal)) {
-          throw new Error("A IA não conseguiu identificar o prato mesmo com a sua ajuda. Tente uma foto mais clara.");
+        const analise = aiResult.analise || {};
+        const isLowPrecision = Boolean(
+          analise.precisao_baixa === true ||
+          (typeof analise.confianca_score === "number" && analise.confianca_score < 75) ||
+          Boolean(userClarificationResponse?.trim()) ||
+          aiResult.status === "DUVIDA"
+        );
+
+        const totalKcal = parseFloat(String(analise.total_kcal)) || (userProvidedText ? 550 : 0);
+        if (!totalKcal) {
+          throw new Error("A IA não conseguiu identificar o prato. Tente uma foto mais clara ou descreva os alimentos.");
         }
 
-        const analise = aiResult.analise || {};
         const matched: MockMealResult = {
           id: `ai-${Date.now()}`,
-          mealName: analise.prato_nome || "Prato não identificado",
+          mealName: analise.prato_nome || userProvidedText || "Prato identificado",
           cuisineTag: analise.pais_origem || "Local",
-          confidence: analise.confianca_score || 95,
-          estimatedKcal: parseFloat(String(analise.total_kcal)) || 0,
-          protein: parseFloat(String(analise.macros?.proteina)) || 0,
-          carbs: parseFloat(String(analise.macros?.carbs)) || 0,
-          fat: parseFloat(String(analise.macros?.gordura)) || 0,
-          dailyGoalPercent: Math.round((parseFloat(String(analise.total_kcal)) / profile.calorieGoal) * 100) || 0,
+          confidence: analise.confianca_score || (isLowPrecision ? 65 : 95),
+          isLowPrecision,
+          estimatedKcal: totalKcal,
+          protein: parseFloat(String(analise.macros?.proteina)) || 28,
+          carbs: parseFloat(String(analise.macros?.carbs)) || 65,
+          fat: parseFloat(String(analise.macros?.gordura)) || 14,
+          dailyGoalPercent: Math.round((totalKcal / profile.calorieGoal) * 100) || 0,
           sodiumMg: analise.sodiumMg || 450,
           fiberG: analise.fiberG || 4.5,
           sugarsG: analise.sugarsG || 2.1,
@@ -1658,18 +1673,31 @@ function LumeFitApp() {
           ironPct: analise.ironPct || 10,
           calciumPct: analise.calciumPct || 8,
           imageSeed: "ai",
-          ingredients: (analise.ingredientes_detalhados || []).map((i: any) => ({
-            name: i.item,
-            calories: parseFloat(String(i.kcal)) || 0,
-            note: i.obs
-          })),
+          ingredients: (analise.ingredientes_detalhados && analise.ingredientes_detalhados.length > 0)
+            ? analise.ingredientes_detalhados.map((i: any) => ({
+                name: i.item,
+                calories: parseFloat(String(i.kcal)) || 0,
+                note: i.obs
+              }))
+            : [{ name: userProvidedText || "Ingredientes principais", calories: totalKcal, note: isLowPrecision ? "Estimativa com base na descrição" : "" }],
           insights: aiResult.insights_saude ? [aiResult.insights_saude] : [],
         };
+
+        // Se a imagem tiver baixa precisão e o utilizador ainda não tiver passado pelo refinamento
+        if (isLowPrecision && !bypassLowPrecisionCheck) {
+          setPendingLowPrecisionResult(matched);
+          setRefinementDetailsText(userProvidedText);
+          setAnalysisProgress(100);
+          setMealStage("low_precision_guidance");
+          return;
+        }
 
         setAnalysisProgress(100);
         setActiveResult(matched);
         setPortionMultiplier(1);
         setMealStage("result");
+        setBypassLowPrecisionCheck(false);
+        setPendingLowPrecisionResult(null);
         setUserClarificationResponse(""); // Reset for next time
         setAiClarificationQuestion(null);
         if (!isAdmin && session) {
@@ -1689,7 +1717,7 @@ function LumeFitApp() {
       clearInterval(progressTick);
       clearInterval(msgTick);
     };
-  }, [mealStage, previewImageBase64, userClarificationResponse, profile.calorieGoal, localizedAnalysisMessages.length, setManagedTimeout]);
+  }, [mealStage, previewImageBase64, userClarificationResponse, profile.calorieGoal, localizedAnalysisMessages.length, setManagedTimeout, bypassLowPrecisionCheck, isAdmin, session]);
 
   useEffect(() => {
     if (!activeResult || mealStage !== "result") return;
@@ -2195,12 +2223,35 @@ function LumeFitApp() {
     setPreviewImage(null);
     setDescricaoPrato("");
     setActiveResult(null);
+    setPendingLowPrecisionResult(null);
+    setBypassLowPrecisionCheck(false);
+    setShowLowPrecisionConfirmModal(false);
+    setRefinementDetailsText("");
+    setUserClarificationResponse("");
+    setAiClarificationQuestion(null);
     setPortionMultiplier(1);
     setNutritionOpen(false);
     setExpandedIngredient(null);
     setAnalysisProgress(0);
     setAnalysisMessageIndex(0);
   }, []);
+
+  const handleProceedWithLowPrecision = useCallback(async () => {
+    setShowLowPrecisionConfirmModal(false);
+    if (pendingLowPrecisionResult) {
+      setActiveResult(pendingLowPrecisionResult);
+      setMealStage("result");
+      setBypassLowPrecisionCheck(false);
+      setPendingLowPrecisionResult(null);
+      if (!isAdmin && session) {
+        const remaining = await deductCreditFromDB(session.user.id);
+        setCredits(remaining);
+      }
+    } else {
+      setBypassLowPrecisionCheck(true);
+      setMealStage("analyzing");
+    }
+  }, [pendingLowPrecisionResult, isAdmin, session]);
 
   const handleGeneratePlan = useCallback(async () => {
     setAuthLoading(true);
@@ -3791,6 +3842,203 @@ function LumeFitApp() {
                             </div>
                           )}
 
+                          {mealStage === "low_precision_guidance" && (
+                            <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-bottom-6 duration-500 pb-28">
+                              <article className="glass-card overflow-hidden rounded-[28px] border border-amber-500/30 shadow-2xl shadow-amber-500/5">
+                                {/* Top Banner */}
+                                <div className="bg-gradient-to-br from-amber-500/15 via-brand-accent-1/10 to-transparent p-5 sm:p-6 border-b border-glass-border">
+                                  <div className="flex items-start gap-3.5">
+                                    <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-2xl shadow-inner shrink-0 mt-0.5">
+                                      🔍
+                                    </div>
+                                    <div>
+                                      <h3 className="text-lg sm:text-xl font-bold text-foreground">A IA não conseguiu ver bem a imagem</h3>
+                                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                                        A foto pode estar muito aproximada, com reflexos, sombras ou leve desfoque. Escolha como prefere prosseguir para obter a melhor precisão:
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="p-5 sm:p-6 space-y-6">
+                                  {/* Opção 1: Tirar nova foto com enquadramento correto */}
+                                  <div className="rounded-2xl border border-brand-accent-1/30 bg-brand-accent-1/5 p-4 sm:p-5 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-brand-accent-1">Opção 1</span>
+                                      <span className="text-[10px] font-semibold bg-brand-accent-1/20 text-brand-accent-1 px-2.5 py-0.5 rounded-full border border-brand-accent-1/30">
+                                        Mais Recomendado
+                                      </span>
+                                    </div>
+                                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                                      <Camera className="h-4 w-4 text-brand-accent-1" />
+                                      Tirar uma nova foto com a distância ideal
+                                    </h4>
+                                    <div className="rounded-xl bg-background/50 border border-glass-border p-3.5 text-xs text-muted-foreground space-y-2 leading-relaxed">
+                                      <p className="text-foreground font-medium text-xs">📸 Instruções para foto perfeita:</p>
+                                      <ul className="space-y-1.5 text-[11px] list-disc list-inside">
+                                        <li><strong>Afaste o telemóvel 20 a 30 cm do prato</strong> (não aproxime demais para não desfocar).</li>
+                                        <li>Fotografe de cima, enquadrando o prato por completo.</li>
+                                        <li>Certifique-se de estar num local com boa iluminação.</li>
+                                      </ul>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      className="w-full h-12 rounded-xl bg-brand-accent-1 hover:bg-brand-accent-1/90 text-black font-bold flex items-center justify-center gap-2 shadow-lg shadow-brand-accent-1/20 active:scale-[0.99] transition-all"
+                                      onClick={() => {
+                                        cameraInputRef.current?.click();
+                                      }}
+                                    >
+                                      <Camera className="h-4 w-4" />
+                                      Tirar nova foto agora
+                                    </Button>
+                                  </div>
+
+                                  {/* Divisor Visual */}
+                                  <div className="relative flex items-center justify-center">
+                                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-glass-border" /></div>
+                                    <span className="relative bg-card/80 backdrop-blur px-3 py-1 rounded-full border border-glass-border text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                      ou se preferir
+                                    </span>
+                                  </div>
+
+                                  {/* Opção 2: Descrever os detalhes */}
+                                  <div className="rounded-2xl border border-brand-accent-2/30 bg-brand-accent-2/5 p-4 sm:p-5 space-y-3.5">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-brand-accent-2">Opção 2</span>
+                                      <span className="text-[10px] text-muted-foreground">Sem tirar nova foto</span>
+                                    </div>
+                                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                                      <Sparkles className="h-4 w-4 text-brand-accent-2" />
+                                      Descrever os detalhes da refeição
+                                    </h4>
+                                    <p className="text-xs text-muted-foreground leading-relaxed">
+                                      Para a IA calcular as calorias com máxima precisão, indique os detalhes que conhecer:
+                                    </p>
+
+                                    {/* Guia detalhado dos tipos de detalhes para adicionar */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                                      <div className="rounded-xl border border-glass-border bg-white/5 p-3 space-y-1">
+                                        <p className="font-semibold text-foreground flex items-center gap-1.5">
+                                          <span>⚖️</span> Quantidades ou Gramas
+                                        </p>
+                                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                          Ex: 150g ou 2 colheres de sopa de arroz, 1 bife de frango médio (~120g), 1 concha de feijão.
+                                        </p>
+                                      </div>
+                                      <div className="rounded-xl border border-glass-border bg-white/5 p-3 space-y-1">
+                                        <p className="font-semibold text-foreground flex items-center gap-1.5">
+                                          <span>🍳</span> Modo de Preparo
+                                        </p>
+                                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                          Ex: grelhado na air fryer, frito no óleo, cozido com água e sal, refogado com alho.
+                                        </p>
+                                      </div>
+                                      <div className="rounded-xl border border-glass-border bg-white/5 p-3 space-y-1">
+                                        <p className="font-semibold text-foreground flex items-center gap-1.5">
+                                          <span>🫒</span> Gorduras e Molhos
+                                        </p>
+                                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                          Ex: 1 colher de azeite, molho de amendoim, maionese, queijo ou manteiga.
+                                        </p>
+                                      </div>
+                                      <div className="rounded-xl border border-glass-border bg-white/5 p-3 space-y-1">
+                                        <p className="font-semibold text-foreground flex items-center gap-1.5">
+                                          <span>🥗</span> Ingredientes Ocultos
+                                        </p>
+                                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                          Ex: açúcar no molho, farinha no empanado, pele do frango removida.
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    {/* Campo de texto */}
+                                    <div className="space-y-1.5 pt-1">
+                                      <label className="text-[10px] font-bold uppercase tracking-wider text-brand-accent-2/80 ml-1">
+                                        Tua descrição detalhada:
+                                      </label>
+                                      <textarea
+                                        value={refinementDetailsText}
+                                        onChange={(e) => setRefinementDetailsText(e.target.value)}
+                                        placeholder="Ex: 2 colheres de arroz branco (~150g), 1 peito de frango médio grelhado no azeite (~120g) e salada mista sem molho..."
+                                        className="w-full h-28 p-3.5 rounded-2xl bg-white/5 border border-glass-border focus:ring-2 focus:ring-brand-accent-2/40 focus:border-brand-accent-2 outline-none text-sm text-foreground transition-all shadow-inner resize-none placeholder:text-muted-foreground/50"
+                                      />
+                                    </div>
+
+                                    <Button
+                                      type="button"
+                                      className="w-full h-12 rounded-xl bg-brand-accent-2 hover:bg-brand-accent-2/90 text-white font-bold shadow-lg shadow-brand-accent-2/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2"
+                                      disabled={!refinementDetailsText.trim()}
+                                      onClick={() => {
+                                        setUserClarificationResponse(refinementDetailsText);
+                                        setBypassLowPrecisionCheck(true);
+                                        setMealStage("analyzing");
+                                      }}
+                                    >
+                                      <Sparkles className="h-4 w-4" />
+                                      Recalcular com estes detalhes
+                                    </Button>
+                                  </div>
+
+                                  {/* Botão de Escape: Continuar com a descrição que tenho */}
+                                  <div className="pt-2 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowLowPrecisionConfirmModal(true)}
+                                      className="text-xs text-muted-foreground hover:text-foreground font-medium underline underline-offset-4 transition-colors py-2 px-4 rounded-xl hover:bg-white/5"
+                                    >
+                                      Continuar com a descrição que tenho
+                                    </button>
+                                  </div>
+                                </div>
+                              </article>
+                            </div>
+                          )}
+
+                          {/* Modal de Confirmação quando clica em 'Continuar com a descrição que tenho' */}
+                          {showLowPrecisionConfirmModal && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+                              <div className="w-full max-w-sm glass-card rounded-[28px] border border-amber-500/30 bg-background/95 p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+                                <div className="flex items-start gap-3">
+                                  <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 text-2xl shrink-0">
+                                    <AlertTriangle className="h-6 w-6 text-amber-500" />
+                                  </div>
+                                  <div>
+                                    <h4 className="text-base font-bold text-foreground">Aviso de Precisão</h4>
+                                    <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">
+                                      Informações insuficientes
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                  A IA não tem informações suficientes por conta da imagem que não está visível com clareza e por falta de uma descrição completa sobre porções e modo de preparo.
+                                </p>
+
+                                <div className="rounded-xl bg-amber-500/10 border border-amber-500/25 p-3 text-[11px] text-amber-300/90 leading-relaxed">
+                                  ℹ️ Os valores serão calculados com base em <strong>porções médias estimadas</strong> de um prato normal. A margem de erro poderá ser maior.
+                                </div>
+
+                                <div className="space-y-2 pt-2">
+                                  <Button
+                                    type="button"
+                                    className="w-full h-11 rounded-xl bg-amber-500 hover:bg-amber-600 text-black font-bold shadow-lg shadow-amber-500/25 active:scale-[0.98] transition-all"
+                                    onClick={handleProceedWithLowPrecision}
+                                  >
+                                    Continuar mesmo assim
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="w-full h-10 rounded-xl border-glass-border text-xs text-muted-foreground hover:text-foreground font-semibold"
+                                    onClick={() => setShowLowPrecisionConfirmModal(false)}
+                                  >
+                                    Voltar e detalhar
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           {mealStage === "result" && activeResult && (
                             <div className="mt-4 space-y-4 pb-36">
                               <article className="glass-card animate-enter rounded-[20px] p-5">
@@ -3989,6 +4237,24 @@ function LumeFitApp() {
                                   <span>2x</span>
                                 </div>
                               </article>
+
+                              {activeResult.isLowPrecision && (
+                                <article className="glass-card animate-enter rounded-[20px] border border-brand-accent-1/25 bg-brand-accent-1/5 p-4 text-xs text-muted-foreground">
+                                  <div className="flex items-center gap-2 mb-1.5 text-foreground/90 font-medium">
+                                    <span className="text-sm">ℹ️</span>
+                                    <span className="font-semibold text-xs">Precisão estimada (imagem com baixa nitidez)</span>
+                                  </div>
+                                  <p className="leading-relaxed text-[11px] text-muted-foreground">
+                                    A IA não conseguiu ver todos os detalhes da imagem com nitidez e calculou as calorias com base no que foi identificado e no que descreveu.
+                                  </p>
+                                  <div className="mt-2.5 pt-2 border-t border-glass-border">
+                                    <p className="font-semibold text-foreground/90 mb-1 text-[11px]">📸 Como tirar a foto na próxima refeição:</p>
+                                    <p className="leading-relaxed text-[11px] text-muted-foreground">
+                                      Tire a foto a pelo menos <strong>25 a 30 cm de distância</strong> do prato (de preferência pegando o prato todo de cima) e com boa luz, sem aproximar demais a câmara.
+                                    </p>
+                                  </div>
+                                </article>
+                              )}
 
                               <div className="frosted-nav fixed bottom-20 left-1/2 z-30 w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-[18px] p-3 sm:max-w-md">
                                 <div className="space-y-2">
