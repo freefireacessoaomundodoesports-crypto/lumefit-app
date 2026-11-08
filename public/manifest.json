@@ -1,11 +1,15 @@
 {
-  "name": "LUMEfit",
+  "name": "LUMEfit | Contador de Calorias",
   "short_name": "LUMEfit",
   "description": "Consistência que transforma.",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
+  "categories": ["fitness", "health", "lifestyle"],
   "icons": [
     {
       "src": "/lume-logo.png",
@@ -16,7 +20,8 @@
     {
       "src": "/lume-logo.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

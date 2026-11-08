@@ -68,6 +68,8 @@ export const Route = createFileRoute("/")({
 import { AdminPanel, type AdminUser } from "@/components/admin/AdminPanel";
 import { PhoneInput } from "@/components/PhoneInput";
 import { supabase } from "@/lib/supabase";
+import { usePWAInstall } from "@/hooks/usePWAInstall";
+import { InstallPromptModal } from "@/components/InstallPromptModal";
 import type { Session } from "@supabase/supabase-js";
 
 type ViewKey = "home" | "refeicoes" | "progresso" | "perfil" | "setup" | "auth" | "waiting_approval" | "blocked" | "expired" | "pending_plan" | "update_phone";
@@ -919,8 +921,20 @@ function LumeFitApp() {
       return () => clearTimeout(timer);
     }
   }, [showSplash, splashAnimFinished]);
-  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const {
+    isInstalled,
+    isStandalone,
+    isIOS,
+    canPromptDirectly,
+    triggerInstall,
+  } = usePWAInstall();
+  const [showInstallModal, setShowInstallModal] = useState(false);
+
+  useEffect(() => {
+    if (!isStandalone) {
+      setShowInstallModal(true);
+    }
+  }, [isStandalone]);
   const [isOnline, setIsOnline] = useState(true);
   const [pendingAnalyses, setPendingAnalyses] = useState<any[]>([]);
 
@@ -1042,17 +1056,16 @@ function LumeFitApp() {
   }, [appLanguage]);
 
   const handleInstallClick = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
+    if (canPromptDirectly) {
+      const outcome = await triggerInstall();
       if (outcome === "accepted") {
-        setDeferredPrompt(null);
-        setShowInstallPrompt(false);
+        setShowInstallModal(false);
+        setToastMessage(appLanguage === "en" ? "LUMEfit added to Home Screen! 🎉" : "LUMEfit adicionado ao teu ecrã com sucesso! 🎉");
+        setShowToast(true);
+        setManagedTimeout(() => setShowToast(false), 3000);
       }
     } else {
-      setToastMessage(appLanguage === "en" ? "To install: Tap 'Share' then 'Add to Home Screen' 📲" : "Para instalar: Toca em 'Partilhar' e depois em 'Adicionar ao Ecrã Principal' 📲");
-      setShowToast(true);
-      setManagedTimeout(() => setShowToast(false), 5000);
+      setShowInstallModal(true);
     }
   };
 
@@ -2895,6 +2908,13 @@ function LumeFitApp() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-background">
+      <InstallPromptModal
+        isOpen={showInstallModal}
+        onClose={() => setShowInstallModal(false)}
+        onInstall={triggerInstall}
+        isIOS={isIOS}
+        canPromptDirectly={canPromptDirectly}
+      />
       {!session ? (
         <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-foreground animate-in fade-in duration-500">
           <div className="w-full max-w-sm space-y-8">
@@ -3036,36 +3056,7 @@ function LumeFitApp() {
           {(!mountSplash || (!showSplash && splashAnimFinished)) && (
             <section className="mx-auto flex min-h-screen w-full max-w-lg flex-col bg-background px-4 pt-16 pb-28">
 
-              {showInstallPrompt && (
-                <div className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
-                  <div className="w-full max-w-sm glass-card rounded-[32px] p-8 text-center space-y-6 animate-in zoom-in-95 duration-500">
-                    <div className="mx-auto w-20 h-20 rounded-2xl bg-white p-3 shadow-xl">
-                      <img src="/lume-logo.png" alt="LUMEfit" className="w-full h-full object-contain" />
-                    </div>
-                    <div className="space-y-2">
-                      <h3 className="text-xl font-bold">LUMEfit no teu telemóvel</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Instala o app para uma experiência mais rápida, acesso offline e ecrã inteiro.
-                      </p>
-                    </div>
-                    <div className="flex flex-col gap-3 pt-2">
-                      <Button
-                        onClick={handleInstallClick}
-                        className="h-14 rounded-2xl bg-brand-accent-2 hover:bg-brand-accent-2/90 text-white font-bold text-lg shadow-lg shadow-brand-accent-2/20"
-                      >
-                        📲 Instalar App
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        onClick={() => setShowInstallPrompt(false)}
-                        className="h-12 rounded-xl text-muted-foreground font-medium"
-                      >
-                        Continuar na Web
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* InstallPromptModal rendered at root */}
 
               <div className="fixed left-4 top-4 z-40 flex items-center gap-4">
                 {view !== "setup" && (
@@ -4472,14 +4463,18 @@ function LumeFitApp() {
                           {t.logout}
                         </Button>
                       </div>
-                      {!window.matchMedia("(display-mode: standalone)").matches && (
+                      {!isStandalone ? (
                         <Button
                           variant="outline"
                           onClick={handleInstallClick}
-                          className="w-full h-12 rounded-xl bg-brand-accent-2/5 hover:bg-brand-accent-2/10 text-brand-accent-2 border-brand-accent-2/20 mb-2"
+                          className="w-full h-12 rounded-xl bg-brand-accent-2/5 hover:bg-brand-accent-2/10 text-brand-accent-2 border-brand-accent-2/20 mb-2 font-medium"
                         >
                           📲 Instalar LUMEfit no Telemóvel
                         </Button>
+                      ) : (
+                        <div className="w-full h-11 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center gap-2 text-xs font-semibold mb-2">
+                          ✅ App instalado no ecrã principal
+                        </div>
                       )}
                       <p className="mt-4 text-center text-xs text-muted-foreground">LUMEfit v1.0 â€¢ {t.madeForYou}</p>
                     </>
