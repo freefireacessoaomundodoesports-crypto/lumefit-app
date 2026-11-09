@@ -925,16 +925,30 @@ function LumeFitApp() {
     isInstalled,
     isStandalone,
     isIOS,
+    isAndroid,
     canPromptDirectly,
     triggerInstall,
   } = usePWAInstall();
   const [showInstallModal, setShowInstallModal] = useState(false);
 
   useEffect(() => {
-    if (!isStandalone) {
+    // Se o aplicativo já estiver instalado ou a correr no modo standalone, NÃO MOSTRA NADA!
+    if (isInstalled || isStandalone) {
+      setShowInstallModal(false);
+      return;
+    }
+
+    // Só mostra o contentor se o utilizador não tiver instalado e ainda não tiver fechado nesta sessão
+    const isDismissed = sessionStorage.getItem("lumefit_install_dismissed") === "true";
+    if (!isDismissed && splashAnimFinished) {
       setShowInstallModal(true);
     }
-  }, [isStandalone]);
+  }, [isInstalled, isStandalone, splashAnimFinished]);
+
+  const handleCloseInstallModal = () => {
+    setShowInstallModal(false);
+    sessionStorage.setItem("lumefit_install_dismissed", "true");
+  };
   const [isOnline, setIsOnline] = useState(true);
   const [pendingAnalyses, setPendingAnalyses] = useState<any[]>([]);
 
@@ -1056,17 +1070,17 @@ function LumeFitApp() {
   }, [appLanguage]);
 
   const handleInstallClick = async () => {
-    if (canPromptDirectly) {
+    if (isAndroid && canPromptDirectly) {
       const outcome = await triggerInstall();
       if (outcome === "accepted") {
         setShowInstallModal(false);
         setToastMessage(appLanguage === "en" ? "LUMEfit added to Home Screen! 🎉" : "LUMEfit adicionado ao teu ecrã com sucesso! 🎉");
         setShowToast(true);
         setManagedTimeout(() => setShowToast(false), 3000);
+        return;
       }
-    } else {
-      setShowInstallModal(true);
     }
+    setShowInstallModal(true);
   };
 
   const [profile, setProfile] = useState<Profile>({
@@ -2910,9 +2924,18 @@ function LumeFitApp() {
     <main className="relative min-h-screen overflow-hidden bg-background">
       <InstallPromptModal
         isOpen={showInstallModal}
-        onClose={() => setShowInstallModal(false)}
-        onInstall={triggerInstall}
+        onClose={handleCloseInstallModal}
+        onInstall={async () => {
+          const res = await triggerInstall();
+          if (res === "accepted") {
+            setToastMessage(appLanguage === "en" ? "LUMEfit added to Home Screen! 🎉" : "LUMEfit adicionado ao teu ecrã com sucesso! 🎉");
+            setShowToast(true);
+            setManagedTimeout(() => setShowToast(false), 3000);
+          }
+          return res;
+        }}
         isIOS={isIOS}
+        isAndroid={isAndroid}
         canPromptDirectly={canPromptDirectly}
       />
       {!session ? (
@@ -4463,7 +4486,7 @@ function LumeFitApp() {
                           {t.logout}
                         </Button>
                       </div>
-                      {!isStandalone ? (
+                      {!isStandalone && !isInstalled ? (
                         <Button
                           variant="outline"
                           onClick={handleInstallClick}
